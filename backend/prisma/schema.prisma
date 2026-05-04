@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  COACH
+  EMPLOYEE
+}
+
+enum SessionType {
+  SOLO
+  DUO
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  WAITING
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  CANCELLED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      Role     @default(EMPLOYEE)
+  isActive  Boolean  @default(true)
+  strikes   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reservations  Reservation[]
+  coachSessions Session[]     @relation("CoachSessions")
+}
+
+model Session {
+  id        String      @id @default(cuid())
+  date      DateTime
+  duration  Int
+  type      SessionType
+  capacity  Int
+  isLocked  Boolean     @default(false)
+  coachId   String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  coach        User          @relation("CoachSessions", fields: [coachId], references: [id])
+  reservations Reservation[]
+}
+
+model Reservation {
+  id         String             @id @default(cuid())
+  status     ReservationStatus  @default(CONFIRMED)
+  attendance AttendanceStatus?
+  userId     String
+  sessionId  String
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id])
+  session Session @relation(fields: [sessionId], references: [id])
+
+  @@unique([userId, sessionId])
+}
