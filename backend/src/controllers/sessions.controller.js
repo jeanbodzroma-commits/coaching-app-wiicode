@@ -7,16 +7,26 @@ function getCapacity(type) {
   return type === 'SOLO' ? 1 : 2
 }
 
+function formatSession(session) {
+  const confirmed = session.reservations.filter(r => r.status === 'CONFIRMED').length
+  const waiting = session.reservations.filter(r => r.status === 'WAITING').length
+  const { reservations, ...rest } = session
+  return { ...rest, confirmedCount: confirmed, waitingCount: waiting }
+}
+
 async function getAll(req, res, next) {
   try {
     const sessions = await prisma.session.findMany({
       include: {
         coach: { select: { id: true, firstName: true, lastName: true } },
-        _count: { select: { reservations: { where: { status: 'CONFIRMED' } } } },
+        reservations: {
+          where: { status: { in: ['CONFIRMED', 'WAITING'] } },
+          select: { status: true },
+        },
       },
       orderBy: { date: 'asc' },
     })
-    res.json(sessions)
+    res.json(sessions.map(formatSession))
   } catch (err) {
     next(err)
   }
@@ -29,8 +39,9 @@ async function getOne(req, res, next) {
       include: {
         coach: { select: { id: true, firstName: true, lastName: true } },
         reservations: {
-          where: { status: 'CONFIRMED' },
+          where: { status: { in: ['CONFIRMED', 'WAITING'] } },
           include: { user: { select: { id: true, firstName: true, lastName: true } } },
+          orderBy: { createdAt: 'asc' },
         },
       },
     })
@@ -79,10 +90,12 @@ async function remove(req, res, next) {
   try {
     const session = await prisma.session.findUnique({
       where: { id: req.params.id },
-      include: { _count: { select: { reservations: { where: { status: 'CONFIRMED' } } } } },
+      include: {
+        reservations: { where: { status: { in: ['CONFIRMED', 'WAITING'] } } },
+      },
     })
     if (!session) return res.status(404).json({ message: 'Créneau introuvable' })
-    if (session._count.reservations > 0) {
+    if (session.reservations.length > 0) {
       return res.status(400).json({ message: 'Impossible de supprimer un créneau avec des réservations actives' })
     }
 

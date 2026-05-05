@@ -6,6 +6,7 @@ import { formatDate } from '../utils/formatDate'
 
 export default function DashboardPage() {
   const { user } = useAuth()
+
   const { data: sessions = [] } = useQuery({ queryKey: ['sessions'], queryFn: sessionsService.getAll })
   const { data: myReservations = [] } = useQuery({
     queryKey: ['my-reservations'],
@@ -14,7 +15,9 @@ export default function DashboardPage() {
   })
 
   const upcoming = sessions.filter(s => new Date(s.date) > new Date()).slice(0, 5)
-  const myUpcoming = myReservations.filter(r => r.status === 'CONFIRMED' && new Date(r.session.date) > new Date())
+  const myUpcoming = myReservations.filter(
+    r => ['CONFIRMED', 'WAITING'].includes(r.status) && new Date(r.session.date) > new Date()
+  )
 
   return (
     <div className="p-6 space-y-6">
@@ -24,7 +27,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard label="Créneaux disponibles" value={upcoming.length} color="blue" />
+        <StatCard label="Créneaux à venir" value={upcoming.length} color="blue" />
         {user?.role === 'EMPLOYEE' && (
           <>
             <StatCard label="Mes réservations à venir" value={myUpcoming.length} color="green" />
@@ -36,8 +39,25 @@ export default function DashboardPage() {
         )}
       </div>
 
+      {user?.role === 'EMPLOYEE' && myUpcoming.length > 0 && (
+        <div>
+          <h3 className="text-lg font-semibold text-gray-700 mb-3">Mes prochaines sessions</h3>
+          <div className="space-y-2">
+            {myUpcoming.map(r => (
+              <div key={r.id} className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-gray-800">{formatDate(r.session.date)}</p>
+                  <p className="text-sm text-gray-500">{r.session.duration} min · {r.session.type}</p>
+                </div>
+                <ReservationStatusBadge status={r.status} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
-        <h3 className="text-lg font-semibold text-gray-700 mb-3">Prochains créneaux</h3>
+        <h3 className="text-lg font-semibold text-gray-700 mb-3">Prochains créneaux disponibles</h3>
         {upcoming.length === 0
           ? <p className="text-gray-400 text-sm">Aucun créneau à venir.</p>
           : (
@@ -45,14 +65,15 @@ export default function DashboardPage() {
               {upcoming.map(s => (
                 <div key={s.id} className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-800">{formatDate(s.date)}</p>
-                    <p className="text-sm text-gray-500">{s.duration} min · {s.type}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-gray-800">{formatDate(s.date)}</p>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                        s.type === 'SOLO' ? 'bg-purple-100 text-purple-700' : 'bg-indigo-100 text-indigo-700'
+                      }`}>{s.type}</span>
+                    </div>
+                    <p className="text-sm text-gray-500">{s.duration} min</p>
                   </div>
-                  <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                    s._count.reservations >= s.capacity ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-                  }`}>
-                    {s._count.reservations}/{s.capacity} place{s.capacity > 1 ? 's' : ''}
-                  </span>
+                  <SessionAvailability session={s} />
                 </div>
               ))}
             </div>
@@ -61,6 +82,31 @@ export default function DashboardPage() {
       </div>
     </div>
   )
+}
+
+function SessionAvailability({ session: s }) {
+  if (s.type === 'SOLO') {
+    const full = s.confirmedCount >= 1
+    return <span className={`text-xs font-semibold px-2 py-1 rounded-full ${full ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+      {full ? 'Complet' : 'Disponible'}
+    </span>
+  }
+  if (s.confirmedCount >= 2) {
+    return <span className="text-xs font-semibold px-2 py-1 rounded-full bg-red-100 text-red-700">Complet</span>
+  }
+  if (s.waitingCount === 1) {
+    return <span className="text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-700">1 place · Rejoindre</span>
+  }
+  return <span className="text-xs font-semibold px-2 py-1 rounded-full bg-green-100 text-green-700">2 places libres</span>
+}
+
+function ReservationStatusBadge({ status }) {
+  const map = {
+    CONFIRMED: { cls: 'bg-green-100 text-green-700', label: 'Confirmé' },
+    WAITING: { cls: 'bg-amber-100 text-amber-700', label: 'En attente d\'un partenaire' },
+  }
+  const { cls, label } = map[status] || { cls: 'bg-gray-100 text-gray-600', label: status }
+  return <span className={`text-xs font-semibold px-2 py-1 rounded-full ${cls}`}>{label}</span>
 }
 
 function StatCard({ label, value, color }) {
