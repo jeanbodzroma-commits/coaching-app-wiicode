@@ -5,6 +5,7 @@ const authRoutes = require('./routes/auth.routes')
 const usersRoutes = require('./routes/users.routes')
 const sessionsRoutes = require('./routes/sessions.routes')
 const reservationsRoutes = require('./routes/reservations.routes')
+const dashboardRoutes = require('./routes/dashboard.routes')
 const errorMiddleware = require('./middlewares/error.middleware')
 
 const app = express()
@@ -18,6 +19,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/users', usersRoutes)
 app.use('/api/sessions', sessionsRoutes)
 app.use('/api/reservations', reservationsRoutes)
+app.use('/api/dashboard', dashboardRoutes)
 
 app.use(errorMiddleware)
 
