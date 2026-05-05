@@ -24,7 +24,10 @@ const allowedOrigins = [
 app.use(cors({ origin: allowedOrigins, credentials: true }))
 app.use(express.json())
 
-app.get('/health', (req, res) => res.json({ status: 'ok' }))
+app.get('/health', (req, res) => {
+  const url = process.env.DATABASE_URL || ''
+  res.json({ status: 'ok', db_set: !!url, db_prefix: url.slice(0, 15) })
+})
 
 app.use('/api/auth', authRoutes)
 app.use('/api/users', usersRoutes)
