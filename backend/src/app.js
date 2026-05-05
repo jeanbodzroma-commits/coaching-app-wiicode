@@ -8,6 +8,8 @@ const reservationsRoutes = require('./routes/reservations.routes')
 const dashboardRoutes = require('./routes/dashboard.routes')
 const historyRoutes = require('./routes/history.routes')
 const penaltiesRoutes = require('./routes/penalties.routes')
+const goalsRoutes = require('./routes/goals.routes')
+const programsRoutes = require('./routes/programs.routes')
 const errorMiddleware = require('./middlewares/error.middleware')
 
 const app = express()
@@ -24,6 +26,8 @@ app.use('/api/reservations', reservationsRoutes)
 app.use('/api/dashboard', dashboardRoutes)
 app.use('/api/history', historyRoutes)
 app.use('/api/penalties', penaltiesRoutes)
+app.use('/api/goals', goalsRoutes)
+app.use('/api/programs', programsRoutes)
 
 app.use(errorMiddleware)
 

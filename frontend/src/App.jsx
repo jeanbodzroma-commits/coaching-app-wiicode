@@ -9,6 +9,7 @@ import SessionDetailPage from './pages/SessionDetailPage'
 import HistoryPage from './pages/HistoryPage'
 import UsersPage from './pages/UsersPage'
 import PenaltiesPage from './pages/PenaltiesPage'
+import ProgramsPage from './pages/ProgramsPage'
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
             <Route path="history" element={<HistoryPage />} />
             <Route path="users" element={<ProtectedRoute roles={['ADMIN']}><UsersPage /></ProtectedRoute>} />
             <Route path="penalties" element={<ProtectedRoute roles={['ADMIN']}><PenaltiesPage /></ProtectedRoute>} />
+            <Route path="programs" element={<ProgramsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
