@@ -1,50 +1,122 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { reservationsService } from '../services/reservations.service'
-import { formatDate } from '../utils/formatDate'
+import { useAuth } from '../store/AuthContext'
+import { historyService } from '../services/history.service'
+import EmployeeHistory from '../components/history/EmployeeHistory'
+import CoachHistory from '../components/history/CoachHistory'
+import AdminHistory from '../components/history/AdminHistory'
 
 export default function HistoryPage() {
-  const { data: reservations = [], isLoading } = useQuery({
-    queryKey: ['my-reservations'],
-    queryFn: reservationsService.getMine,
+  const { user } = useAuth()
+  const [filters, setFilters] = useState({ page: 1, type: '', attendance: '', from: '', to: '' })
+
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ['history', filters],
+    queryFn: () => historyService.get(cleanFilters(filters)),
+    keepPreviousData: true,
   })
 
-  const past = reservations.filter(r => new Date(r.session.date) < new Date())
+  function setFilter(key, value) {
+    setFilters(f => ({ ...f, [key]: value, page: 1 }))
+  }
 
-  if (isLoading) return <div className="p-6 text-gray-400">Chargement…</div>
+  function setPage(page) {
+    setFilters(f => ({ ...f, page }))
+  }
 
   return (
-    <div className="p-6 space-y-4">
-      <h2 className="text-2xl font-bold text-gray-800">Historique</h2>
+    <div className="p-6 space-y-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-800">Historique</h2>
+        {isFetching && !isLoading && <span className="text-xs text-gray-400">Mise à jour…</span>}
+      </div>
 
-      {past.length === 0
-        ? <p className="text-gray-400">Aucune session passée.</p>
-        : (
-          <div className="space-y-2">
-            {past.map(r => (
-              <div key={r.id} className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-gray-800">{formatDate(r.session.date)}</p>
-                  <p className="text-sm text-gray-500">{r.session.duration} min · {r.session.type} · {r.session.coach?.firstName}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <StatusBadge status={r.status} />
-                  {r.attendance && <AttendanceBadge attendance={r.attendance} />}
-                </div>
-              </div>
-            ))}
-          </div>
-        )
-      }
+      <FilterBar filters={filters} setFilter={setFilter} userRole={user?.role} data={data} />
+
+      {isLoading ? (
+        <LoadingSkeleton />
+      ) : (
+        <>
+          {user?.role === 'EMPLOYEE' && <EmployeeHistory data={data} />}
+          {user?.role === 'COACH' && <CoachHistory data={data} />}
+          {user?.role === 'ADMIN' && <AdminHistory data={data} setFilter={setFilter} />}
+
+          {data?.pagination && data.pagination.totalPages > 1 && (
+            <Pagination pagination={data.pagination} onPage={setPage} />
+          )}
+        </>
+      )}
     </div>
   )
 }
 
-function StatusBadge({ status }) {
-  const map = { CONFIRMED: 'bg-blue-100 text-blue-700', WAITING: 'bg-yellow-100 text-yellow-700', CANCELLED: 'bg-gray-100 text-gray-600' }
-  return <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${map[status]}`}>{status}</span>
+function FilterBar({ filters, setFilter, userRole, data }) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-4 flex flex-wrap gap-3 items-center">
+      <select value={filters.type} onChange={e => setFilter('type', e.target.value)} className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <option value="">Tous les types</option>
+        <option value="SOLO">Solo</option>
+        <option value="DUO">Duo</option>
+      </select>
+
+      {userRole === 'EMPLOYEE' && (
+        <select value={filters.attendance} onChange={e => setFilter('attendance', e.target.value)} className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="">Toutes les présences</option>
+          <option value="PRESENT">Présent</option>
+          <option value="ABSENT">Absent</option>
+          <option value="CANCELLED">Annulé</option>
+          <option value="UNMARKED">Non marqué</option>
+        </select>
+      )}
+
+      {(userRole === 'COACH' || userRole === 'ADMIN') && (
+        <select value={filters.attendance} onChange={e => setFilter('attendance', e.target.value)} className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="">Toutes les présences</option>
+          <option value="PRESENT">Présents</option>
+          <option value="ABSENT">Absents</option>
+          <option value="UNMARKED">Non marqués</option>
+        </select>
+      )}
+
+      <div className="flex items-center gap-2">
+        <input type="date" value={filters.from} onChange={e => setFilter('from', e.target.value)} className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <span className="text-gray-400 text-sm">→</span>
+        <input type="date" value={filters.to} onChange={e => setFilter('to', e.target.value)} className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+
+      {(filters.type || filters.attendance || filters.from || filters.to) && (
+        <button onClick={() => setFilter('type', '') || setFilter('attendance', '') || setFilter('from', '') || setFilter('to', '')}
+          className="text-xs text-gray-400 hover:text-gray-600 underline">
+          Réinitialiser
+        </button>
+      )}
+
+      {data?.pagination && (
+        <span className="ml-auto text-xs text-gray-400">{data.pagination.total} résultat(s)</span>
+      )}
+    </div>
+  )
 }
 
-function AttendanceBadge({ attendance }) {
-  const map = { PRESENT: 'bg-green-100 text-green-700', ABSENT: 'bg-red-100 text-red-700', CANCELLED: 'bg-gray-100 text-gray-600' }
-  return <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${map[attendance]}`}>{attendance}</span>
+function Pagination({ pagination, onPage }) {
+  const { page, totalPages } = pagination
+  return (
+    <div className="flex items-center justify-center gap-2">
+      <button disabled={page <= 1} onClick={() => onPage(page - 1)} className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-40 hover:bg-gray-50">← Précédent</button>
+      <span className="text-sm text-gray-500">{page} / {totalPages}</span>
+      <button disabled={page >= totalPages} onClick={() => onPage(page + 1)} className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-40 hover:bg-gray-50">Suivant →</button>
+    </div>
+  )
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-3 animate-pulse">
+      {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-16 bg-gray-100 rounded-xl" />)}
+    </div>
+  )
+}
+
+function cleanFilters(f) {
+  return Object.fromEntries(Object.entries(f).filter(([, v]) => v !== '' && v !== null))
 }
