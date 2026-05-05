@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client')
 const { createReservationSchema, updateAttendanceSchema } = require('../validators/reservations.validator')
+const { STRIKE_THRESHOLD, getBlockedUntil, isCurrentlyBlocked } = require('../utils/penalties.utils')
 
 const prisma = new PrismaClient()
 
@@ -20,11 +21,22 @@ async function create(req, res, next) {
   try {
     const { sessionId } = createReservationSchema.parse(req.body)
 
+    // Vérifier si l'utilisateur est suspendu
+    const currentUser = await prisma.user.findUnique({ where: { id: req.user.id } })
+    if (isCurrentlyBlocked(currentUser)) {
+      return res.status(403).json({
+        message: `Votre compte est suspendu jusqu'au ${currentUser.blockedUntil.toLocaleDateString('fr-FR')} (${currentUser.strikes} strikes).`,
+        blockedUntil: currentUser.blockedUntil,
+      })
+    }
+    // Déblocage automatique si la suspension est expirée
+    if (currentUser.blockedUntil && !isCurrentlyBlocked(currentUser)) {
+      await prisma.user.update({ where: { id: req.user.id }, data: { blockedUntil: null } })
+    }
+
     const session = await prisma.session.findUnique({
       where: { id: sessionId },
-      include: {
-        reservations: { where: { status: { in: ['CONFIRMED', 'WAITING'] } } },
-      },
+      include: { reservations: { where: { status: { in: ['CONFIRMED', 'WAITING'] } } } },
     })
 
     if (!session) return res.status(404).json({ message: 'Créneau introuvable' })
@@ -32,7 +44,6 @@ async function create(req, res, next) {
       return res.status(400).json({ message: 'Ce créneau n\'est plus disponible' })
     }
 
-    // Bloquer si déjà réservé (actif)
     const existing = await prisma.reservation.findUnique({
       where: { userId_sessionId: { userId: req.user.id, sessionId } },
     })
@@ -43,30 +54,16 @@ async function create(req, res, next) {
     const active = session.reservations
     const confirmedCount = active.filter(r => r.status === 'CONFIRMED').length
     const waitingReservation = active.find(r => r.status === 'WAITING')
-
     let status = 'CONFIRMED'
 
     if (session.type === 'SOLO') {
-      if (confirmedCount >= 1) {
-        return res.status(400).json({ message: 'Créneau Solo complet' })
-      }
-      status = 'CONFIRMED'
+      if (confirmedCount >= 1) return res.status(400).json({ message: 'Créneau Solo complet' })
     } else {
-      // DUO
-      if (confirmedCount >= 2) {
-        return res.status(400).json({ message: 'Créneau Duo complet' })
-      }
-
+      if (confirmedCount >= 2) return res.status(400).json({ message: 'Créneau Duo complet' })
       if (!waitingReservation && confirmedCount === 0) {
-        // 1ère personne : en attente d'un partenaire
         status = 'WAITING'
       } else if (waitingReservation) {
-        // 2ème personne : complète le duo → les deux passent CONFIRMED
-        status = 'CONFIRMED'
-        await prisma.reservation.update({
-          where: { id: waitingReservation.id },
-          data: { status: 'CONFIRMED' },
-        })
+        await prisma.reservation.update({ where: { id: waitingReservation.id }, data: { status: 'CONFIRMED' } })
       } else {
         return res.status(400).json({ message: 'Créneau Duo complet' })
       }
@@ -106,25 +103,14 @@ async function cancel(req, res, next) {
       return res.status(400).json({ message: 'Impossible d\'annuler un créneau passé' })
     }
 
-    await prisma.reservation.update({
-      where: { id: req.params.id },
-      data: { status: 'CANCELLED' },
-    })
+    await prisma.reservation.update({ where: { id: req.params.id }, data: { status: 'CANCELLED' } })
 
-    // Pour un Duo : si l'annulé était CONFIRMED, rétrograder le partenaire CONFIRMED → WAITING
     if (reservation.session.type === 'DUO' && reservation.status === 'CONFIRMED') {
       const partner = await prisma.reservation.findFirst({
-        where: {
-          sessionId: reservation.sessionId,
-          status: 'CONFIRMED',
-          id: { not: reservation.id },
-        },
+        where: { sessionId: reservation.sessionId, status: 'CONFIRMED', id: { not: reservation.id } },
       })
       if (partner) {
-        await prisma.reservation.update({
-          where: { id: partner.id },
-          data: { status: 'WAITING' },
-        })
+        await prisma.reservation.update({ where: { id: partner.id }, data: { status: 'WAITING' } })
       }
     }
 
@@ -137,10 +123,40 @@ async function cancel(req, res, next) {
 async function updateAttendance(req, res, next) {
   try {
     const { attendance } = updateAttendanceSchema.parse(req.body)
+
+    const current = await prisma.reservation.findUnique({
+      where: { id: req.params.id },
+      include: { user: true },
+    })
+    if (!current) return res.status(404).json({ message: 'Réservation introuvable' })
+
+    const wasAbsent = current.attendance === 'ABSENT'
+    const isNowAbsent = attendance === 'ABSENT'
+
     const reservation = await prisma.reservation.update({
       where: { id: req.params.id },
       data: { attendance },
     })
+
+    // Logique strikes : absent non justifié → +1 strike, correction → -1 strike
+    if (!wasAbsent && isNowAbsent) {
+      const updatedUser = await prisma.user.update({
+        where: { id: current.userId },
+        data: { strikes: { increment: 1 } },
+      })
+      if (updatedUser.strikes >= STRIKE_THRESHOLD && !updatedUser.blockedUntil) {
+        await prisma.user.update({
+          where: { id: updatedUser.id },
+          data: { blockedUntil: getBlockedUntil() },
+        })
+      }
+    } else if (wasAbsent && !isNowAbsent) {
+      await prisma.user.update({
+        where: { id: current.userId },
+        data: { strikes: { decrement: 1 } },
+      })
+    }
+
     res.json(reservation)
   } catch (err) {
     next(err)

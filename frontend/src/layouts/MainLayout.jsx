@@ -31,7 +31,10 @@ export default function MainLayout() {
           <NavLink to="/planning" className={navClass}>Planning</NavLink>
           <NavLink to="/history" className={navClass}>Historique</NavLink>
           {user?.role === 'ADMIN' && (
-            <NavLink to="/users" className={navClass}>Utilisateurs</NavLink>
+            <>
+              <NavLink to="/users" className={navClass}>Utilisateurs</NavLink>
+              <NavLink to="/penalties" className={navClass}>Pénalités</NavLink>
+            </>
           )}
         </nav>
 
