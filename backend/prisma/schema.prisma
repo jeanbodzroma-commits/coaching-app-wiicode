@@ -30,6 +30,16 @@ enum AttendanceStatus {
   CANCELLED
 }
 
+enum NotificationType {
+  RESERVATION_CONFIRMED
+  RESERVATION_CANCELLED
+  SESSION_REMINDER
+  DUO_PARTNER_JOINED
+  DUO_PARTNER_LEFT
+  STRIKE_ADDED
+  ACCOUNT_UNBLOCKED
+}
+
 enum GoalType {
   WEIGHT_LOSS
   CARDIO
@@ -64,7 +74,9 @@ model User {
   employeePrograms Program[]     @relation("EmployeePrograms")
   coachPrograms    Program[]     @relation("CoachPrograms")
   progressLogs     ProgressLog[]
+  notifications    Notification[]
 }
+
 
 model Session {
   id        String      @id @default(cuid())
@@ -94,6 +106,19 @@ model Reservation {
   session Session @relation(fields: [sessionId], references: [id])
 
   @@unique([userId, sessionId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  link      String?
+  userId    String
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id])
 }
 
 model Goal {

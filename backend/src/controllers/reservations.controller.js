@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client')
 const { createReservationSchema, updateAttendanceSchema } = require('../validators/reservations.validator')
 const { STRIKE_THRESHOLD, getBlockedUntil, isCurrentlyBlocked } = require('../utils/penalties.utils')
+const { notify } = require('../utils/notify')
 
 const prisma = new PrismaClient()
 
@@ -83,6 +84,19 @@ async function create(req, res, next) {
       })
     }
 
+    const dateStr = reservation.session.date.toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+    const link = `/planning/${reservation.session.id}`
+
+    if (status === 'WAITING') {
+      notify(req.user.id, 'RESERVATION_CONFIRMED', 'Réservation en attente', `Vous êtes en attente d'un partenaire pour la session Duo du ${dateStr}`, link)
+    } else {
+      notify(req.user.id, 'RESERVATION_CONFIRMED', 'Réservation confirmée', `Votre session ${reservation.session.type} du ${dateStr} est confirmée.`, link)
+      // Si Duo : prévenir le partenaire en attente qui vient d'être promu
+      if (reservation.session.type === 'DUO' && waitingReservation) {
+        notify(waitingReservation.userId, 'DUO_PARTNER_JOINED', 'Partenaire trouvé !', `Un partenaire a rejoint votre session Duo du ${dateStr}. Vous êtes maintenant confirmé.`, link)
+      }
+    }
+
     res.status(201).json(reservation)
   } catch (err) {
     next(err)
@@ -105,12 +119,17 @@ async function cancel(req, res, next) {
 
     await prisma.reservation.update({ where: { id: req.params.id }, data: { status: 'CANCELLED' } })
 
+    const dateStr = reservation.session.date.toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+    const link = `/planning/${reservation.session.id}`
+    notify(reservation.userId, 'RESERVATION_CANCELLED', 'Réservation annulée', `Votre réservation pour la session du ${dateStr} a été annulée.`, link)
+
     if (reservation.session.type === 'DUO' && reservation.status === 'CONFIRMED') {
       const partner = await prisma.reservation.findFirst({
         where: { sessionId: reservation.sessionId, status: 'CONFIRMED', id: { not: reservation.id } },
       })
       if (partner) {
         await prisma.reservation.update({ where: { id: partner.id }, data: { status: 'WAITING' } })
+        notify(partner.userId, 'DUO_PARTNER_LEFT', 'Partenaire parti', `Votre partenaire a annulé la session Duo du ${dateStr}. Vous êtes de nouveau en attente.`, link)
       }
     }
 

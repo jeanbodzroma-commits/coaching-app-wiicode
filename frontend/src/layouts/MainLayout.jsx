@@ -1,5 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/AuthContext'
+import NotificationBell from '../components/notifications/NotificationBell'
 
 export default function MainLayout() {
   const { user, logout } = useAuth()
@@ -19,11 +20,16 @@ export default function MainLayout() {
     <div className="flex h-screen bg-gray-100">
       <aside className="w-56 bg-gray-800 flex flex-col">
         <div className="p-4 border-b border-gray-700">
-          <h1 className="text-white font-bold text-lg">Coaching Wiicode</h1>
-          <p className="text-gray-400 text-xs mt-1">{user?.firstName} {user?.lastName}</p>
-          <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-blue-600 text-white">
-            {user?.role}
-          </span>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-white font-bold text-lg">Coaching Wiicode</h1>
+              <p className="text-gray-400 text-xs mt-1">{user?.firstName} {user?.lastName}</p>
+              <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-blue-600 text-white">
+                {user?.role}
+              </span>
+            </div>
+            <NotificationBell />
+          </div>
         </div>
 
         <nav className="flex-1 p-3 space-y-1">

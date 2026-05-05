@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client')
 const { isCurrentlyBlocked, STRIKE_THRESHOLD, BLOCK_DAYS } = require('../utils/penalties.utils')
+const { notify } = require('../utils/notify')
 
 const prisma = new PrismaClient()
 
@@ -39,6 +40,8 @@ async function unblock(req, res, next) {
       select: safeSelect,
     })
 
+    notify(req.params.userId, 'ACCOUNT_UNBLOCKED', 'Compte débloqué', 'Votre compte a été débloqué par un administrateur. Vous pouvez à nouveau réserver des créneaux.')
+
     res.json(updated)
   } catch (err) {
     next(err)
@@ -62,6 +65,8 @@ async function addStrike(req, res, next) {
       },
       select: safeSelect,
     })
+
+    notify(req.params.userId, 'STRIKE_ADDED', 'Strike ajouté', `Vous avez reçu un strike (${updated.strikes}/${STRIKE_THRESHOLD}). Raison : ${reason}${isCurrentlyBlocked(updated) ? ` — Votre compte est suspendu jusqu'au ${updated.blockedUntil.toLocaleDateString('fr-FR')}.` : ''}`)
 
     res.json({ ...updated, isBlocked: isCurrentlyBlocked(updated) })
   } catch (err) {

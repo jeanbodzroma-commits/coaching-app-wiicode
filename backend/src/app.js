@@ -10,6 +10,7 @@ const historyRoutes = require('./routes/history.routes')
 const penaltiesRoutes = require('./routes/penalties.routes')
 const goalsRoutes = require('./routes/goals.routes')
 const programsRoutes = require('./routes/programs.routes')
+const notificationsRoutes = require('./routes/notifications.routes')
 const errorMiddleware = require('./middlewares/error.middleware')
 
 const app = express()
@@ -28,6 +29,7 @@ app.use('/api/history', historyRoutes)
 app.use('/api/penalties', penaltiesRoutes)
 app.use('/api/goals', goalsRoutes)
 app.use('/api/programs', programsRoutes)
+app.use('/api/notifications', notificationsRoutes)
 
 app.use(errorMiddleware)
 
