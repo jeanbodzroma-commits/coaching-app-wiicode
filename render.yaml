@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: coaching-app-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: coaching-app-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: FRONTEND_URL
+        value: https://coaching-app-wiicode.vercel.app
+
+databases:
+  - name: coaching-app-db
+    databaseName: coaching_db
+    user: coaching_user
+    plan: free
