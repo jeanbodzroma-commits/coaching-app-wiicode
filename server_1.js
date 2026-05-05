@@ -1,10 +1,4 @@
 require('dotenv').config()
-
-// Nettoie DATABASE_URL si elle contient des guillemets (saisie Render)
-if (process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = process.env.DATABASE_URL.replace(/^["']|["']$/g, '').trim()
-}
-
 const app = require('./src/app')
 
 const PORT = process.env.PORT || 3000
