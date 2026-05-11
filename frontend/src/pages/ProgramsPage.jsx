@@ -4,20 +4,21 @@ import EmployeePrograms from '../components/programs/EmployeePrograms'
 
 export default function ProgramsPage() {
   const { user } = useAuth()
+  const isCoachOrAdmin = ['COACH', 'ADMIN'].includes(user?.role)
 
   return (
-    <div className="p-6 space-y-5">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-800">Objectifs & Programmes</h2>
-        <p className="text-gray-500 text-sm mt-1">
-          {user?.role === 'EMPLOYEE'
-            ? 'Vos objectifs sportifs et programmes assignés par votre coach'
-            : 'Assignez des objectifs et programmes à vos employés'}
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+      <header>
+        <p className="text-caption font-medium uppercase tracking-wide text-ink-500">Coaching</p>
+        <h1 className="mt-1 font-display text-display-lg text-ink-900 lg:text-display-lg-md">Objectifs &amp; Programmes</h1>
+        <p className="mt-2 text-body text-ink-500">
+          {isCoachOrAdmin
+            ? 'Assigne des objectifs et programmes à tes employés et suis leur progression.'
+            : 'Tes objectifs sportifs et programmes assignés par ton coach.'}
         </p>
-      </div>
+      </header>
 
-      {(user?.role === 'COACH' || user?.role === 'ADMIN') && <CoachPrograms />}
-      {user?.role === 'EMPLOYEE' && <EmployeePrograms />}
+      {isCoachOrAdmin ? <CoachPrograms /> : <EmployeePrograms />}
     </div>
   )
 }

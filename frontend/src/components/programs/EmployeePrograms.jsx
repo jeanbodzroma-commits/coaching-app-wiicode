@@ -1,140 +1,181 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Target, FileText, Sparkles } from 'lucide-react'
 import { goalsService, programsService } from '../../services/goals.service'
+import { Card, Button, Input, Badge, Skeleton, useToast } from '../ui'
 import { GOAL_TYPE_LABELS, GOAL_TYPE_COLORS, GOAL_STATUS_LABELS, GOAL_STATUS_COLORS } from '../../utils/goals'
 
 export default function EmployeePrograms() {
   const qc = useQueryClient()
-  const [openGoalId, setOpenGoalId] = useState(null)
+  const toast = useToast()
   const [tab, setTab] = useState('goals')
+  const [selectedId, setSelectedId] = useState(null)
 
   const { data: goals = [], isLoading: loadingGoals } = useQuery({ queryKey: ['goals'], queryFn: goalsService.getAll })
   const { data: programs = [], isLoading: loadingPrograms } = useQuery({ queryKey: ['programs'], queryFn: programsService.getAll })
 
-  const addProgressMutation = useMutation({
+  const progressMutation = useMutation({
     mutationFn: ({ id, data }) => goalsService.addProgress(id, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['goals'] }); setOpenGoalId(null) },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['goals'] }); toast.success('Suivi ajouté') },
   })
 
-  const { register, handleSubmit, reset } = useForm()
-
-  const activeGoals = goals.filter(g => g.status === 'ACTIVE')
-  const doneGoals = goals.filter(g => g.status !== 'ACTIVE')
+  const items = tab === 'goals' ? goals : programs
+  const selected = items.find(i => i.id === selectedId) ?? items[0] ?? null
+  const loading = tab === 'goals' ? loadingGoals : loadingPrograms
 
   return (
     <div className="space-y-5">
-      {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
-        {[['goals', 'Mes objectifs'], ['programs', 'Mes programmes']].map(([key, label]) => (
-          <button key={key} onClick={() => setTab(key)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === key ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}>
-            {label}
+      <div className="inline-flex gap-1 rounded-full bg-ink-50 p-1">
+        {[['goals', 'Mes objectifs', goals.length], ['programs', 'Mes programmes', programs.length]].map(([k, lab, n]) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => { setTab(k); setSelectedId(null) }}
+            className={`rounded-full px-4 py-1.5 text-body font-medium transition-colors ${tab === k ? 'bg-surface text-primary-700 shadow-soft' : 'text-ink-500 hover:text-ink-700'}`}
+          >
+            {lab} <span className="ml-1 text-caption text-ink-500">{n}</span>
           </button>
         ))}
       </div>
 
-      {tab === 'goals' && (
-        <div className="space-y-3">
-          {loadingGoals ? <Skeleton /> : goals.length === 0 ? (
-            <div className="bg-gray-50 rounded-xl p-8 text-center text-gray-400">
-              <p className="font-medium">Aucun objectif assigné</p>
-              <p className="text-sm mt-1">Votre coach vous assignera un objectif prochainement.</p>
-            </div>
-          ) : (
-            <>
-              {activeGoals.map(g => <GoalCard key={g.id} goal={g} open={openGoalId === g.id}
-                onToggle={() => setOpenGoalId(openGoalId === g.id ? null : g.id)}
-                onAddProgress={(data) => addProgressMutation.mutate({ id: g.id, data })}
-                register={register} handleSubmit={handleSubmit} reset={reset}
-                isPending={addProgressMutation.isPending} />)}
-              {doneGoals.length > 0 && (
-                <div>
-                  <p className="text-xs text-gray-400 uppercase font-semibold mb-2">Terminés / Pausés</p>
-                  {doneGoals.map(g => <GoalCard key={g.id} goal={g} readonly />)}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
-
-      {tab === 'programs' && (
-        <div className="space-y-3">
-          {loadingPrograms ? <Skeleton /> : programs.length === 0 ? (
-            <div className="bg-gray-50 rounded-xl p-8 text-center text-gray-400">
-              <p className="font-medium">Aucun programme assigné</p>
-              <p className="text-sm mt-1">Votre coach vous créera un programme prochainement.</p>
-            </div>
-          ) : (
-            programs.map(p => (
-              <div key={p.id} className="bg-white rounded-xl shadow-sm p-5">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <p className="font-semibold text-gray-800">{p.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Par {p.coach.firstName} {p.coach.lastName} · {new Date(p.createdAt).toLocaleDateString('fr-FR')}</p>
-                    {p.goal && (
-                      <span className={`inline-block mt-1 text-xs font-semibold px-2 py-0.5 rounded-full ${GOAL_TYPE_COLORS[p.goal.type]}`}>
-                        Objectif : {p.goal.title}
-                      </span>
+      {loading ? (
+        <Skeleton className="h-72" />
+      ) : items.length === 0 ? (
+        <Card padding="lg" className="text-center">
+          <Sparkles className="mx-auto h-10 w-10 text-accent-400" strokeWidth={1.5} />
+          <p className="mt-2 font-heading text-h3 font-semibold text-ink-900">
+            {tab === 'goals' ? 'Aucun objectif assigné' : 'Aucun programme assigné'}
+          </p>
+          <p className="mt-1 text-body text-ink-500">
+            Ton coach t'en assignera prochainement.
+          </p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+          {/* List */}
+          <Card padding="none" className="lg:col-span-5 overflow-hidden">
+            <ul className="max-h-[28rem] overflow-y-auto divide-y divide-ink-200/60">
+              {items.map(item => (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(item.id)}
+                    className={`w-full text-left px-4 py-3 transition-colors ${selected?.id === item.id ? 'bg-primary-50' : 'hover:bg-ink-50'}`}
+                  >
+                    <p className="text-body font-medium text-ink-900">{item.title}</p>
+                    {tab === 'goals' && (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                        <span className={`text-caption font-semibold px-2 py-0.5 rounded-full ${GOAL_TYPE_COLORS[item.type]}`}>{GOAL_TYPE_LABELS[item.type]}</span>
+                        <span className={`text-caption font-semibold px-2 py-0.5 rounded-full ${GOAL_STATUS_COLORS[item.status]}`}>{GOAL_STATUS_LABELS[item.status]}</span>
+                      </div>
                     )}
-                  </div>
-                </div>
-                <pre className="text-sm text-gray-700 bg-gray-50 rounded-lg p-4 whitespace-pre-wrap font-mono leading-relaxed">{p.content}</pre>
-              </div>
-            ))
-          )}
+                    {tab === 'programs' && (
+                      <p className="text-caption text-ink-500 mt-0.5">Coach {item.coach.firstName} {item.coach.lastName}</p>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </Card>
+
+          {/* Detail */}
+          <div className="lg:col-span-7">
+            <AnimatePresence mode="wait">
+              {selected ? (
+                <motion.div
+                  key={`${tab}-${selected.id}`}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {tab === 'goals'
+                    ? <GoalDetail
+                        goal={selected}
+                        onProgress={(data) => progressMutation.mutate({ id: selected.id, data })}
+                        isProgressPending={progressMutation.isPending}
+                      />
+                    : <ProgramDetail program={selected} />
+                  }
+                </motion.div>
+              ) : (
+                <Card padding="lg" className="text-center text-ink-500">
+                  <Target className="mx-auto h-10 w-10 text-ink-200" strokeWidth={1.5} />
+                  <p className="mt-2 text-body">Sélectionne un {tab === 'goals' ? 'objectif' : 'programme'}.</p>
+                </Card>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       )}
     </div>
   )
 }
 
-function GoalCard({ goal: g, open, onToggle, onAddProgress, register, handleSubmit, reset, isPending, readonly }) {
+function GoalDetail({ goal: g, onProgress, isProgressPending }) {
+  const { register, handleSubmit, reset } = useForm()
+  const logsCount = g._count?.progressLogs ?? 0
+  const intensity = Math.min(100, logsCount * 20)
+
   return (
-    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-      <div className={`p-4 ${!readonly ? 'cursor-pointer hover:bg-gray-50' : ''}`} onClick={!readonly ? onToggle : undefined}>
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-medium text-gray-800">{g.title}</p>
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${GOAL_TYPE_COLORS[g.type]}`}>{GOAL_TYPE_LABELS[g.type]}</span>
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${GOAL_STATUS_COLORS[g.status]}`}>{GOAL_STATUS_LABELS[g.status]}</span>
-            </div>
-            {g.description && <p className="text-sm text-gray-500 mt-1">{g.description}</p>}
-            <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-              {g.targetDate && <span>Cible : {new Date(g.targetDate).toLocaleDateString('fr-FR')}</span>}
-              <span>{g._count.progressLogs} suivi(s)</span>
-              {g.program && <span className="text-blue-500">Programme disponible</span>}
-            </div>
-          </div>
-          {!readonly && <span className="text-gray-400 text-sm ml-2">{open ? '▲' : '▼'}</span>}
+    <Card padding="md" className="space-y-4">
+      <header>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`text-caption font-semibold px-2 py-0.5 rounded-full ${GOAL_TYPE_COLORS[g.type]}`}>{GOAL_TYPE_LABELS[g.type]}</span>
+          <Badge variant="neutral">{GOAL_STATUS_LABELS[g.status]}</Badge>
+        </div>
+        <h2 className="mt-2 font-heading text-h2 font-semibold text-ink-900">{g.title}</h2>
+        {g.description && <p className="mt-1 text-body text-ink-500">{g.description}</p>}
+        {g.targetDate && <p className="mt-2 text-caption text-ink-500">Cible : {new Date(g.targetDate).toLocaleDateString('fr-FR')}</p>}
+      </header>
+
+      <div>
+        <div className="mb-1 flex items-center justify-between text-caption text-ink-500">
+          <span>Intensité du suivi</span>
+          <span>{logsCount} entrée(s)</span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-ink-200">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${intensity}%` }}
+            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+            className="h-full bg-gradient-to-r from-accent-400 to-accent-500"
+          />
         </div>
       </div>
 
-      {open && (
-        <div className="border-t border-gray-100 p-4 space-y-3">
-          {/* Ajouter suivi */}
-          <form onSubmit={handleSubmit(data => { onAddProgress(data); reset() })} className="flex gap-2">
-            <input {...register('note', { required: true })} placeholder="Note de progression…"
-              className="flex-1 border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
-            <input type="number" step="0.1" {...register('value', { valueAsNumber: true })} placeholder="Valeur"
-              className="w-24 border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
-            <button type="submit" disabled={isPending}
-              className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50">
-              + Suivi
-            </button>
+      {g.status === 'ACTIVE' && (
+        <section>
+          <h3 className="mb-2 text-caption font-medium uppercase tracking-wide text-ink-500">Ajouter un suivi</h3>
+          <form onSubmit={handleSubmit(d => { onProgress(d); reset() })} className="flex flex-col gap-2 sm:flex-row">
+            <Input className="flex-1" placeholder="Note de progression…" {...register('note', { required: true })} />
+            <Input className="sm:w-32" type="number" step="0.1" placeholder="Valeur" {...register('value', { valueAsNumber: true })} />
+            <Button type="submit" variant="primary" loading={isProgressPending}>Ajouter</Button>
           </form>
-        </div>
+        </section>
       )}
-    </div>
+    </Card>
   )
 }
 
-function Skeleton() {
+function ProgramDetail({ program: p }) {
   return (
-    <div className="space-y-3 animate-pulse">
-      {[1, 2].map(i => <div key={i} className="h-20 bg-gray-100 rounded-xl" />)}
-    </div>
+    <Card padding="md" className="space-y-3">
+      <header>
+        <h2 className="font-heading text-h2 font-semibold text-ink-900">{p.title}</h2>
+        <p className="mt-1 text-caption text-ink-500">
+          <FileText className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={1.75} />
+          Coach {p.coach.firstName} {p.coach.lastName} · Créé le {new Date(p.createdAt).toLocaleDateString('fr-FR')}
+        </p>
+        {p.goal && (
+          <p className="mt-1 text-caption text-primary-700">
+            Lié à l'objectif « {p.goal.title} »
+          </p>
+        )}
+      </header>
+      <pre className="whitespace-pre-wrap rounded-xl bg-ink-50 p-4 font-mono text-body text-ink-700 max-h-[28rem] overflow-y-auto leading-relaxed">{p.content}</pre>
+    </Card>
   )
 }

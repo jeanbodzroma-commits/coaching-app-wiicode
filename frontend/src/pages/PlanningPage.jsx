@@ -1,200 +1,197 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Plus, CalendarRange, List, Search } from 'lucide-react'
 import { useAuth } from '../store/AuthContext'
 import { sessionsService } from '../services/sessions.service'
 import { reservationsService } from '../services/reservations.service'
-import { formatDate } from '../utils/formatDate'
+import { Card, Button, Badge, Skeleton, useToast } from '../components/ui'
+import WeekCalendar from '../components/planning/WeekCalendar'
+import SessionListView from '../components/planning/SessionListView'
+import CreateSessionModal from '../components/planning/CreateSessionModal'
+
+const FILTER_TYPES = [
+  { value: 'all',  label: 'Tous' },
+  { value: 'SOLO', label: 'Solo' },
+  { value: 'DUO',  label: 'Duo' },
+]
 
 export default function PlanningPage() {
   const { user } = useAuth()
-  const navigate = useNavigate()
   const qc = useQueryClient()
-  const [showForm, setShowForm] = useState(false)
-  const [error, setError] = useState(null)
+  const toast = useToast()
+  const canCreate = ['COACH', 'ADMIN'].includes(user?.role)
+  const canReserve = ['EMPLOYEE', 'ADMIN'].includes(user?.role)
+
+  const [anchor, setAnchor] = useState(() => new Date())
+  const [view, setView] = useState('week')   // 'week' (desktop default) | 'list'
+  const [typeFilter, setTypeFilter] = useState('all')
+  const [showCreate, setShowCreate] = useState(false)
 
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: ['sessions'],
     queryFn: sessionsService.getAll,
   })
 
+  const { data: myReservations = [] } = useQuery({
+    queryKey: ['my-reservations'],
+    queryFn: reservationsService.getMine,
+    enabled: !!user,
+  })
+
+  const reservedIds = useMemo(
+    () => myReservations.filter(r => r.status !== 'CANCELLED').map(r => r.sessionId),
+    [myReservations]
+  )
+
+  const filtered = useMemo(() => {
+    return sessions.filter(s => typeFilter === 'all' || s.type === typeFilter)
+  }, [sessions, typeFilter])
+
+  const futureFiltered = useMemo(
+    () => filtered.filter(s => new Date(s.date) >= startOfDay(new Date())).sort((a, b) => new Date(a.date) - new Date(b.date)),
+    [filtered]
+  )
+
   const reserveMutation = useMutation({
-    mutationFn: (sessionId) => reservationsService.create(sessionId),
+    mutationFn: sessionId => reservationsService.create(sessionId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sessions'] })
       qc.invalidateQueries({ queryKey: ['my-reservations'] })
-      setError(null)
+      toast.success('Réservation confirmée')
     },
-    onError: (err) => setError(err.response?.data?.message || 'Erreur lors de la réservation'),
+    onError: (err) => toast.error('Réservation impossible', err.response?.data?.message ?? 'Erreur inconnue'),
   })
 
-  const { register, handleSubmit, reset } = useForm()
   const createMutation = useMutation({
     mutationFn: sessionsService.create,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sessions'] }); setShowForm(false); reset() },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sessions'] })
+      setShowCreate(false)
+      toast.success('Créneau créé')
+    },
+    onError: (err) => toast.error('Création impossible', err.response?.data?.message ?? 'Erreur inconnue'),
   })
 
-  const upcoming = sessions.filter(s => new Date(s.date) > new Date())
-  const past = sessions.filter(s => new Date(s.date) <= new Date())
-
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-800">Planning</h2>
-        {['COACH', 'ADMIN'].includes(user?.role) && (
-          <button onClick={() => setShowForm(!showForm)} className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
-            + Nouveau créneau
-          </button>
-        )}
-      </div>
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
-          {error}
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+      {/* Header */}
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-caption font-medium uppercase tracking-wide text-ink-500">Planning</p>
+          <h1 className="mt-1 font-display text-display-lg text-ink-900 lg:text-display-lg-md">Les créneaux</h1>
         </div>
-      )}
+        {canCreate && (
+          <Button variant="primary" onClick={() => setShowCreate(true)} leftIcon={<Plus className="h-4 w-4" strokeWidth={2} />}>
+            Nouveau créneau
+          </Button>
+        )}
+      </header>
 
-      {showForm && (
-        <form onSubmit={handleSubmit(data => createMutation.mutate({ ...data, date: new Date(data.date).toISOString() }))} className="bg-white rounded-xl shadow-sm p-5 space-y-4">
-          <h3 className="font-semibold text-gray-700">Créer un créneau</h3>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Date et heure</label>
-              <input type="datetime-local" {...register('date', { required: true })} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Durée (min)</label>
-              <input type="number" {...register('duration', { required: true, valueAsNumber: true })} defaultValue={60} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Type</label>
-              <select {...register('type', { required: true })} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="SOLO">Solo</option>
-                <option value="DUO">Duo</option>
-              </select>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button type="submit" disabled={createMutation.isPending} className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
-              {createMutation.isPending ? 'Création…' : 'Créer'}
+      {/* Filters */}
+      <Card padding="sm" className="flex flex-wrap items-center gap-3 !p-3">
+        <span className="inline-flex items-center gap-1 text-caption text-ink-500">
+          <Search className="h-3.5 w-3.5" strokeWidth={1.75} /> Filtre
+        </span>
+        <div className="flex gap-1 rounded-full bg-ink-50 p-1">
+          {FILTER_TYPES.map(f => (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => setTypeFilter(f.value)}
+              className={`rounded-full px-3 py-1 text-caption font-medium transition-colors ${
+                typeFilter === f.value ? 'bg-surface text-primary-700 shadow-soft' : 'text-ink-500 hover:text-ink-700'
+              }`}
+            >
+              {f.label}
             </button>
-            <button type="button" onClick={() => setShowForm(false)} className="text-sm px-4 py-2 rounded-lg border hover:bg-gray-50">Annuler</button>
-          </div>
-        </form>
-      )}
-
-      {isLoading ? (
-        <p className="text-gray-400">Chargement…</p>
-      ) : (
-        <>
-          <SessionList
-            title="Créneaux à venir"
-            sessions={upcoming}
-            userRole={user?.role}
-            onReserve={(id) => reserveMutation.mutate(id)}
-            onView={(id) => navigate(`/planning/${id}`)}
-            isPending={reserveMutation.isPending}
-          />
-          {past.length > 0 && (
-            <SessionList
-              title="Créneaux passés"
-              sessions={past}
-              userRole={user?.role}
-              past
-              onView={(id) => navigate(`/planning/${id}`)}
-            />
-          )}
-        </>
-      )}
-    </div>
-  )
-}
-
-function SessionList({ title, sessions, userRole, past, onReserve, onView, isPending }) {
-  return (
-    <div>
-      <h3 className="text-lg font-semibold text-gray-700 mb-3">{title}</h3>
-      {sessions.length === 0
-        ? <p className="text-gray-400 text-sm">Aucun créneau.</p>
-        : (
-          <div className="space-y-2">
-            {sessions.map(s => <SessionCard key={s.id} session={s} userRole={userRole} past={past} onReserve={onReserve} onView={onView} isPending={isPending} />)}
-          </div>
-        )
-      }
-    </div>
-  )
-}
-
-function SessionCard({ session: s, userRole, past, onReserve, onView, isPending }) {
-  const isFull = s.type === 'SOLO'
-    ? s.confirmedCount >= 1
-    : s.confirmedCount >= 2
-
-  const isDuoWaiting = s.type === 'DUO' && s.waitingCount === 1 && s.confirmedCount === 0
-  const isDuoOpen = s.type === 'DUO' && !isFull
-
-  return (
-    <div className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between">
-      <div className="cursor-pointer flex-1" onClick={() => onView(s.id)}>
-        <div className="flex items-center gap-2">
-          <p className="font-medium text-gray-800">{formatDate(s.date)}</p>
-          <TypeBadge type={s.type} />
+          ))}
         </div>
-        <p className="text-sm text-gray-500 mt-0.5">
-          {s.duration} min · {s.coach.firstName} {s.coach.lastName}
-          {isDuoWaiting && <span className="ml-2 text-amber-600 font-medium">· En attente d'un partenaire</span>}
-        </p>
-      </div>
+        <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-ink-50 p-1">
+          <ViewToggleButton active={view === 'week'} onClick={() => setView('week')} icon={<CalendarRange className="h-3.5 w-3.5" />} label="Semaine" />
+          <ViewToggleButton active={view === 'list'} onClick={() => setView('list')} icon={<List className="h-3.5 w-3.5" />} label="Liste" />
+        </span>
+      </Card>
 
-      <div className="flex items-center gap-3 ml-4">
-        <CapacityBadge session={s} />
-        {!past && userRole === 'EMPLOYEE' && !isFull && (
-          <button
-            onClick={() => onReserve(s.id)}
-            disabled={isPending}
-            className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 ${
-              isDuoWaiting
-                ? 'bg-amber-500 hover:bg-amber-600 text-white'
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
-            }`}
+      {/* Content */}
+      {isLoading ? (
+        <div className="space-y-3"><Skeleton className="h-72" /></div>
+      ) : (
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={view}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-6"
           >
-            {isDuoWaiting ? 'Rejoindre' : 'Réserver'}
-          </button>
-        )}
-      </div>
+            {/* Desktop week calendar (only when view=week) */}
+            {view === 'week' && (
+              <div className="hidden lg:block">
+                <WeekCalendar
+                  anchor={anchor}
+                  onAnchorChange={setAnchor}
+                  sessions={filtered}
+                  reservedSessionIds={reservedIds}
+                />
+              </div>
+            )}
+            {/* List view (always visible on mobile, only when view=list on desktop) */}
+            <div className={view === 'week' ? 'lg:hidden' : ''}>
+              <Card padding="md">
+                <h3 className="mb-4 font-heading text-h3 font-semibold text-ink-900">À venir</h3>
+                <SessionListView
+                  sessions={futureFiltered}
+                  reservedSessionIds={reservedIds}
+                  canReserve={canReserve}
+                  onReserve={(id) => reserveMutation.mutate(id)}
+                  isPending={reserveMutation.isPending}
+                />
+              </Card>
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      )}
+
+      {/* Mobile FAB */}
+      {canCreate && (
+        <button
+          type="button"
+          onClick={() => setShowCreate(true)}
+          aria-label="Nouveau créneau"
+          className="fixed bottom-6 right-6 z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary-700 text-white shadow-elevated hover:bg-primary-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 lg:hidden"
+        >
+          <Plus className="h-6 w-6" strokeWidth={2} />
+        </button>
+      )}
+
+      <CreateSessionModal
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        onSubmit={(payload) => createMutation.mutate(payload)}
+        isPending={createMutation.isPending}
+      />
     </div>
   )
 }
 
-function TypeBadge({ type }) {
+function ViewToggleButton({ active, onClick, icon, label }) {
   return (
-    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-      type === 'SOLO' ? 'bg-purple-100 text-purple-700' : 'bg-indigo-100 text-indigo-700'
-    }`}>
-      {type}
-    </span>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-caption font-medium transition-colors ${
+        active ? 'bg-surface text-primary-700 shadow-soft' : 'text-ink-500 hover:text-ink-700'
+      }`}
+    >
+      {icon}<span>{label}</span>
+    </button>
   )
 }
 
-function CapacityBadge({ session: s }) {
-  if (s.type === 'SOLO') {
-    const full = s.confirmedCount >= 1
-    return (
-      <span className={`text-xs font-semibold px-2 py-1 rounded-full ${full ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-        {full ? 'Complet' : 'Disponible'}
-      </span>
-    )
-  }
-
-  // DUO
-  const total = s.confirmedCount + s.waitingCount
-  if (s.confirmedCount >= 2) {
-    return <span className="text-xs font-semibold px-2 py-1 rounded-full bg-red-100 text-red-700">Complet</span>
-  }
-  if (s.waitingCount === 1) {
-    return <span className="text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-700">1 place · Duo incomplet</span>
-  }
-  return <span className="text-xs font-semibold px-2 py-1 rounded-full bg-green-100 text-green-700">2 places libres</span>
+function startOfDay(d) {
+  const x = new Date(d)
+  x.setHours(0, 0, 0, 0)
+  return x
 }

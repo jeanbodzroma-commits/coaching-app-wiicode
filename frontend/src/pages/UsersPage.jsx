@@ -1,82 +1,174 @@
+import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { Plus, Search, X } from 'lucide-react'
 import { usersService } from '../services/users.service'
+import { Card, Button, Input, Badge, Avatar, Modal, Skeleton, useToast } from '../components/ui'
+import UserFormModal from '../components/users/UserFormModal'
+
+const ROLE_LABEL = { ADMIN: 'Administrateur', COACH: 'Coach', EMPLOYEE: 'Employé' }
+const ROLE_VARIANT = { ADMIN: 'primary', COACH: 'accent', EMPLOYEE: 'info' }
 
 export default function UsersPage() {
   const qc = useQueryClient()
+  const toast = useToast()
+  const [search, setSearch] = useState('')
+  const [showCreate, setShowCreate] = useState(false)
+  const [toDisable, setToDisable] = useState(null)
+
   const { data: users = [], isLoading } = useQuery({ queryKey: ['users'], queryFn: usersService.getAll })
-  const { register, handleSubmit, reset } = useForm()
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return users
+    return users.filter(u =>
+      u.firstName.toLowerCase().includes(q) ||
+      u.lastName.toLowerCase().includes(q)  ||
+      u.email.toLowerCase().includes(q)     ||
+      ROLE_LABEL[u.role]?.toLowerCase().includes(q)
+    )
+  }, [users, search])
 
   const createMutation = useMutation({
     mutationFn: usersService.create,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); reset() },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] })
+      setShowCreate(false)
+      toast.success('Compte créé')
+    },
+    onError: (err) => toast.error('Création impossible', err.response?.data?.message ?? 'Erreur'),
   })
 
-  const deactivateMutation = useMutation({
+  const disableMutation = useMutation({
     mutationFn: usersService.remove,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] })
+      setToDisable(null)
+      toast.success('Compte désactivé')
+    },
+    onError: (err) => toast.error('Désactivation impossible', err.response?.data?.message ?? 'Erreur'),
   })
 
   return (
-    <div className="p-6 space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">Utilisateurs</h2>
-
-      <form onSubmit={handleSubmit(data => createMutation.mutate(data))} className="bg-white rounded-xl shadow-sm p-5 space-y-4">
-        <h3 className="font-semibold text-gray-700">Créer un compte</h3>
-        <div className="grid grid-cols-2 gap-4">
-          <input {...register('firstName', { required: true })} placeholder="Prénom" className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          <input {...register('lastName', { required: true })} placeholder="Nom" className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          <input type="email" {...register('email', { required: true })} placeholder="Email" className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          <input type="password" {...register('password', { required: true })} placeholder="Mot de passe" className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          <select {...register('role')} className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="EMPLOYEE">Employé</option>
-            <option value="COACH">Coach</option>
-            <option value="ADMIN">Admin</option>
-          </select>
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-caption font-medium uppercase tracking-wide text-ink-500">Administration</p>
+          <h1 className="mt-1 font-display text-display-lg text-ink-900 lg:text-display-lg-md">Utilisateurs</h1>
         </div>
-        <button type="submit" disabled={createMutation.isPending} className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
-          {createMutation.isPending ? 'Création…' : 'Créer'}
-        </button>
-      </form>
+        <Button variant="primary" onClick={() => setShowCreate(true)} leftIcon={<Plus className="h-4 w-4" strokeWidth={2} />}>
+          Nouveau compte
+        </Button>
+      </header>
 
-      {isLoading ? <p className="text-gray-400">Chargement…</p> : (
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-              <tr>
-                <th className="px-4 py-3 text-left">Nom</th>
-                <th className="px-4 py-3 text-left">Email</th>
-                <th className="px-4 py-3 text-left">Rôle</th>
-                <th className="px-4 py-3 text-left">Statut</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {users.map(u => (
-                <tr key={u.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-800">{u.firstName} {u.lastName}</td>
-                  <td className="px-4 py-3 text-gray-500">{u.email}</td>
-                  <td className="px-4 py-3">
-                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">{u.role}</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {u.isActive ? 'Actif' : 'Désactivé'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
+      <Card padding="sm" className="!p-3">
+        <Input
+          aria-label="Rechercher un utilisateur"
+          placeholder="Rechercher par nom, email ou rôle…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          leftIcon={<Search className="h-4 w-4" strokeWidth={1.75} />}
+        />
+      </Card>
+
+      {isLoading ? (
+        <div className="space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-16" />)}</div>
+      ) : filtered.length === 0 ? (
+        <Card padding="md"><p className="py-6 text-center text-body text-ink-500">Aucun utilisateur correspondant.</p></Card>
+      ) : (
+        <>
+          {/* Mobile cards */}
+          <ul className="space-y-2 md:hidden">
+            {filtered.map(u => (
+              <li key={u.id}>
+                <Card padding="sm">
+                  <div className="flex items-center gap-3">
+                    <Avatar size="md" name={`${u.firstName} ${u.lastName}`} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-body font-medium text-ink-900">{u.firstName} {u.lastName}</p>
+                      <p className="truncate text-caption text-ink-500">{u.email}</p>
+                      <div className="mt-1 flex items-center gap-1">
+                        <Badge variant={ROLE_VARIANT[u.role]}>{ROLE_LABEL[u.role]}</Badge>
+                        {!u.isActive && <Badge variant="neutral">Désactivé</Badge>}
+                      </div>
+                    </div>
                     {u.isActive && (
-                      <button onClick={() => { if (confirm('Désactiver ce compte ?')) deactivateMutation.mutate(u.id) }} className="text-xs text-red-500 hover:underline">
-                        Désactiver
-                      </button>
+                      <Button size="sm" variant="ghost" onClick={() => setToDisable(u)}>Désactiver</Button>
                     )}
-                  </td>
+                  </div>
+                </Card>
+              </li>
+            ))}
+          </ul>
+
+          {/* Desktop table */}
+          <Card padding="none" className="hidden md:block overflow-hidden">
+            <table className="w-full text-body">
+              <thead className="bg-ink-50/60 text-caption font-medium uppercase tracking-wide text-ink-500">
+                <tr>
+                  <th className="px-4 py-3 text-left">Utilisateur</th>
+                  <th className="px-4 py-3 text-left">Email</th>
+                  <th className="px-4 py-3 text-left">Rôle</th>
+                  <th className="px-4 py-3 text-left">Statut</th>
+                  <th className="px-4 py-3 text-right"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-ink-200/60">
+                {filtered.map(u => (
+                  <tr key={u.id} className="transition-colors hover:bg-ink-50">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar size="sm" name={`${u.firstName} ${u.lastName}`} />
+                        <span className="font-medium text-ink-900">{u.firstName} {u.lastName}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-ink-500">{u.email}</td>
+                    <td className="px-4 py-3"><Badge variant={ROLE_VARIANT[u.role]}>{ROLE_LABEL[u.role]}</Badge></td>
+                    <td className="px-4 py-3">
+                      <Badge variant={u.isActive ? 'success' : 'neutral'}>{u.isActive ? 'Actif' : 'Désactivé'}</Badge>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {u.isActive && (
+                        <Button size="sm" variant="ghost" onClick={() => setToDisable(u)} leftIcon={<X className="h-3.5 w-3.5" strokeWidth={1.75} />}>
+                          Désactiver
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        </>
       )}
+
+      <UserFormModal
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        onSubmit={(payload) => createMutation.mutate(payload)}
+        isPending={createMutation.isPending}
+      />
+
+      <Modal
+        open={!!toDisable}
+        onClose={() => setToDisable(null)}
+        title="Désactiver ce compte ?"
+        description="L'utilisateur ne pourra plus se connecter. Les données sont conservées."
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setToDisable(null)}>Annuler</Button>
+            <Button variant="danger" loading={disableMutation.isPending} onClick={() => disableMutation.mutate(toDisable.id)}>
+              Désactiver
+            </Button>
+          </>
+        }
+      >
+        {toDisable && (
+          <p className="text-body text-ink-500">
+            Confirmer la désactivation du compte de <strong className="text-ink-900">{toDisable.firstName} {toDisable.lastName}</strong> ({toDisable.email}) ?
+          </p>
+        )}
+      </Modal>
     </div>
   )
 }

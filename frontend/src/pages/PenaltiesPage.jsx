@@ -1,8 +1,20 @@
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { motion, useReducedMotion } from 'framer-motion'
+import { ShieldAlert, ShieldCheck, Plus, X } from 'lucide-react'
 import { penaltiesService } from '../services/penalties.service'
+import { Card, Button, Badge, Avatar, Modal, Skeleton, useToast } from '../components/ui'
+import { StatCard } from '../components/dashboard'
+import StrikeModal from '../components/penalties/StrikeModal'
+import { cn } from '../utils/cn'
 
 export default function PenaltiesPage() {
   const qc = useQueryClient()
+  const toast = useToast()
+  const reduced = useReducedMotion()
+
+  const [strikeTarget, setStrikeTarget] = useState(null)
+  const [unblockTarget, setUnblockTarget] = useState(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['penalties'],
@@ -11,165 +23,198 @@ export default function PenaltiesPage() {
 
   const unblockMutation = useMutation({
     mutationFn: (userId) => penaltiesService.unblock(userId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['penalties'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['penalties'] })
+      setUnblockTarget(null)
+      toast.success('Compte débloqué')
+    },
+    onError: (err) => toast.error('Action impossible', err.response?.data?.message ?? 'Erreur'),
   })
 
   const strikeMutation = useMutation({
     mutationFn: ({ userId, reason }) => penaltiesService.addStrike(userId, reason),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['penalties'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['penalties'] })
+      setStrikeTarget(null)
+      toast.success('Strike ajouté')
+    },
+    onError: (err) => toast.error('Action impossible', err.response?.data?.message ?? 'Erreur'),
   })
 
-  const users = data?.users || []
-  const config = data?.config || { strikeThreshold: 3, blockDays: 7 }
+  if (isLoading) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+        <Skeleton className="h-10 w-48" />
+        <div className="grid grid-cols-3 gap-4">{[0, 1, 2].map(i => <Skeleton key={i} className="h-24" />)}</div>
+        <Skeleton className="h-40" />
+      </div>
+    )
+  }
+
+  const users = data?.users ?? []
+  const config = data?.config ?? { strikeThreshold: 3, blockDays: 7 }
   const blocked = users.filter(u => u.isBlocked)
   const warned = users.filter(u => !u.isBlocked)
 
-  if (isLoading) return <div className="p-6 text-gray-400">Chargement…</div>
-
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-800">Pénalités</h2>
-        <p className="text-gray-500 text-sm mt-1">
-          Suspension automatique après <strong>{config.strikeThreshold} strikes</strong> — durée : <strong>{config.blockDays} jours</strong>
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+      <header>
+        <p className="text-caption font-medium uppercase tracking-wide text-ink-500">Administration</p>
+        <h1 className="mt-1 font-display text-display-lg text-ink-900 lg:text-display-lg-md">Pénalités</h1>
+        <p className="mt-2 text-body text-ink-500">
+          Suspension automatique après <strong className="text-ink-900">{config.strikeThreshold} strikes</strong> · durée <strong className="text-ink-900">{config.blockDays} jours</strong>.
         </p>
+      </header>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard tone="warning" value={users.length} label="Employés à strikes" icon={<ShieldAlert className="h-5 w-5" strokeWidth={1.75} />} />
+        <StatCard tone={blocked.length ? 'danger' : 'neutral'} value={blocked.length} label="Comptes suspendus" icon={<ShieldAlert className="h-5 w-5" strokeWidth={1.75} />} />
+        <StatCard tone={warned.length ? 'accent' : 'neutral'} value={warned.length} label="Avertissements" />
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <StatCard value={users.length} label="Employés avec strikes" color="amber" />
-        <StatCard value={blocked.length} label="Comptes suspendus" color={blocked.length > 0 ? 'red' : 'gray'} />
-        <StatCard value={warned.length} label="Avertissements actifs" color={warned.length > 0 ? 'orange' : 'gray'} />
-      </div>
-
-      {/* Comptes suspendus */}
-      {blocked.length > 0 && (
-        <Section title="Comptes suspendus" accent="red">
-          {blocked.map(u => (
-            <UserRow
-              key={u.id}
-              user={u}
-              config={config}
-              onUnblock={() => { if (confirm(`Débloquer ${u.firstName} ${u.lastName} et réinitialiser ses strikes ?`)) unblockMutation.mutate(u.id) }}
-              onStrike={() => {
-                const reason = prompt(`Raison du strike pour ${u.firstName} ${u.lastName} :`)
-                if (reason) strikeMutation.mutate({ userId: u.id, reason })
-              }}
-              isPending={unblockMutation.isPending || strikeMutation.isPending}
-            />
-          ))}
-        </Section>
-      )}
-
-      {/* Avertissements */}
-      {warned.length > 0 && (
-        <Section title="Avertissements actifs" accent="amber">
-          {warned.map(u => (
-            <UserRow
-              key={u.id}
-              user={u}
-              config={config}
-              onUnblock={() => { if (confirm(`Réinitialiser les strikes de ${u.firstName} ${u.lastName} ?`)) unblockMutation.mutate(u.id) }}
-              onStrike={() => {
-                const reason = prompt(`Raison du strike pour ${u.firstName} ${u.lastName} :`)
-                if (reason) strikeMutation.mutate({ userId: u.id, reason })
-              }}
-              isPending={unblockMutation.isPending || strikeMutation.isPending}
-            />
-          ))}
-        </Section>
-      )}
-
-      {users.length === 0 && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-8 text-center">
-          <p className="text-green-700 font-medium">Aucune pénalité active</p>
-          <p className="text-green-600 text-sm mt-1">Tous les employés ont un bilan propre.</p>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function UserRow({ user: u, config, onUnblock, onStrike, isPending }) {
-  const pct = Math.min((u.strikes / config.strikeThreshold) * 100, 100)
-  const blockedUntilStr = u.blockedUntil
-    ? new Date(u.blockedUntil).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-    : null
-
-  return (
-    <div className="flex items-center gap-4 py-3 border-b border-gray-100 last:border-0">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <p className="font-medium text-gray-800">{u.firstName} {u.lastName}</p>
-          {u.isBlocked && (
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">Suspendu</span>
-          )}
-          {u.blockExpired && (
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Expirée</span>
-          )}
-        </div>
-        <p className="text-xs text-gray-400">{u.email}</p>
-        {blockedUntilStr && u.isBlocked && (
-          <p className="text-xs text-red-500 mt-0.5">Suspendu jusqu'au {blockedUntilStr}</p>
-        )}
-
-        {/* Barre de strikes */}
-        <div className="mt-2 flex items-center gap-2">
-          <div className="flex gap-1">
-            {Array.from({ length: config.strikeThreshold }).map((_, i) => (
-              <span
-                key={i}
-                className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-                  i < u.strikes ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-300'
-                }`}
-              >
-                ✕
-              </span>
-            ))}
+      {users.length === 0 ? (
+        <Card padding="lg" className="bg-green-50/40 border border-success-500/20">
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="h-6 w-6 text-success-500" strokeWidth={1.75} />
+            <div>
+              <p className="font-heading text-h3 font-semibold text-ink-900">Aucune pénalité active</p>
+              <p className="text-body text-ink-500">Tous les employés ont un bilan propre.</p>
+            </div>
           </div>
-          <span className="text-xs text-gray-500">{u.strikes}/{config.strikeThreshold} strikes</span>
-        </div>
-      </div>
+        </Card>
+      ) : (
+        <>
+          {blocked.length > 0 && (
+            <Section title="Comptes suspendus" accent="danger">
+              <UserList
+                users={blocked}
+                config={config}
+                reduced={reduced}
+                onStrike={setStrikeTarget}
+                onUnblock={setUnblockTarget}
+              />
+            </Section>
+          )}
+          {warned.length > 0 && (
+            <Section title="Avertissements actifs" accent="warning">
+              <UserList
+                users={warned}
+                config={config}
+                reduced={reduced}
+                onStrike={setStrikeTarget}
+                onUnblock={setUnblockTarget}
+              />
+            </Section>
+          )}
+        </>
+      )}
 
-      <div className="flex items-center gap-2 shrink-0">
-        <button
-          onClick={onStrike}
-          disabled={isPending}
-          className="text-xs px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
-        >
-          + Strike
-        </button>
-        <button
-          onClick={onUnblock}
-          disabled={isPending}
-          className="text-xs px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
-        >
-          {u.isBlocked ? 'Débloquer' : 'Réinitialiser'}
-        </button>
-      </div>
+      <StrikeModal
+        user={strikeTarget}
+        onClose={() => setStrikeTarget(null)}
+        onSubmit={(reason) => strikeMutation.mutate({ userId: strikeTarget.id, reason })}
+        isPending={strikeMutation.isPending}
+      />
+
+      <Modal
+        open={!!unblockTarget}
+        onClose={() => setUnblockTarget(null)}
+        title={unblockTarget?.isBlocked ? 'Débloquer ce compte ?' : 'Réinitialiser les strikes ?'}
+        description="Les strikes seront remis à 0 et la suspension levée. La personne sera notifiée."
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setUnblockTarget(null)}>Annuler</Button>
+            <Button variant="primary" loading={unblockMutation.isPending} onClick={() => unblockMutation.mutate(unblockTarget.id)}>
+              Confirmer
+            </Button>
+          </>
+        }
+      >
+        {unblockTarget && (
+          <p className="text-body text-ink-500">
+            <strong className="text-ink-900">{unblockTarget.firstName} {unblockTarget.lastName}</strong> · {unblockTarget.strikes} strike(s).
+          </p>
+        )}
+      </Modal>
     </div>
   )
 }
 
 function Section({ title, accent, children }) {
-  const colors = { red: 'border-red-200 bg-red-50/30', amber: 'border-amber-200 bg-amber-50/30' }
-  const titleColors = { red: 'text-red-700', amber: 'text-amber-700' }
+  const ring = accent === 'danger' ? 'border-danger-500/20 bg-red-50/30' : 'border-warning-500/20 bg-amber-50/20'
+  const tone = accent === 'danger' ? 'text-danger-500' : 'text-warning-500'
   return (
-    <div className={`bg-white rounded-xl shadow-sm overflow-hidden border ${colors[accent]}`}>
-      <div className="px-5 py-3 border-b border-gray-100">
-        <h3 className={`font-semibold ${titleColors[accent]}`}>{title}</h3>
-      </div>
-      <div className="px-5">{children}</div>
-    </div>
+    <Card padding="none" className={cn('overflow-hidden border', ring)}>
+      <header className="px-5 py-3 border-b border-ink-200/60">
+        <h2 className={cn('font-heading text-h3 font-semibold', tone)}>{title}</h2>
+      </header>
+      <div className="p-2">{children}</div>
+    </Card>
   )
 }
 
-function StatCard({ value, label, color }) {
-  const colors = { amber: 'bg-amber-50 text-amber-700', red: 'bg-red-50 text-red-700', orange: 'bg-orange-50 text-orange-700', gray: 'bg-gray-50 text-gray-600' }
+function UserList({ users, config, reduced, onStrike, onUnblock }) {
   return (
-    <div className={`rounded-xl p-4 ${colors[color]}`}>
-      <p className="text-3xl font-bold">{value}</p>
-      <p className="text-xs mt-1 opacity-80">{label}</p>
+    <motion.ul
+      initial={reduced ? false : 'hidden'}
+      animate="visible"
+      variants={reduced ? {} : { hidden: {}, visible: { transition: { staggerChildren: 0.04 } } }}
+      className="flex flex-col gap-1"
+    >
+      {users.map(u => (
+        <motion.li key={u.id} variants={reduced ? {} : { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0 } }}>
+          <UserRow user={u} config={config} onStrike={() => onStrike(u)} onUnblock={() => onUnblock(u)} />
+        </motion.li>
+      ))}
+    </motion.ul>
+  )
+}
+
+function UserRow({ user: u, config, onStrike, onUnblock }) {
+  const blockedUntilStr = u.blockedUntil
+    ? new Date(u.blockedUntil).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl p-3 hover:bg-surface transition-colors">
+      <Avatar size="md" name={`${u.firstName} ${u.lastName}`} />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-body font-medium text-ink-900">{u.firstName} {u.lastName}</p>
+          {u.isBlocked && <Badge variant="danger">Suspendu</Badge>}
+          {u.blockExpired && <Badge variant="neutral">Expirée</Badge>}
+        </div>
+        <p className="text-caption text-ink-500">{u.email}</p>
+        {blockedUntilStr && u.isBlocked && (
+          <p className="mt-0.5 text-caption text-danger-500">Suspendu jusqu'au {blockedUntilStr}</p>
+        )}
+        <div className="mt-2 flex items-center gap-2">
+          <div className="flex gap-1" aria-label={`${u.strikes} sur ${config.strikeThreshold} strikes`}>
+            {Array.from({ length: config.strikeThreshold }).map((_, i) => (
+              <span
+                key={i}
+                className={cn(
+                  'flex h-5 w-5 items-center justify-center rounded-full text-caption font-bold transition-colors',
+                  i < u.strikes ? 'bg-danger-500 text-white' : 'bg-ink-200 text-ink-200/0'
+                )}
+                aria-hidden="true"
+              >
+                ✕
+              </span>
+            ))}
+          </div>
+          <span className="text-caption text-ink-500">{u.strikes}/{config.strikeThreshold} strikes</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" onClick={onStrike} leftIcon={<Plus className="h-3.5 w-3.5" strokeWidth={2} />}>
+          Strike
+        </Button>
+        <Button size="sm" variant={u.isBlocked ? 'primary' : 'ghost'} onClick={onUnblock}>
+          {u.isBlocked ? 'Débloquer' : 'Réinitialiser'}
+        </Button>
+      </div>
     </div>
   )
 }
