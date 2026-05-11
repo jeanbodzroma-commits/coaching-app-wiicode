@@ -225,7 +225,7 @@ function SidebarFooter({ user, onLogout }) {
   return (
     <div className="border-t border-white/10 p-4">
       <div className="flex items-center gap-3 rounded-xl bg-white/5 p-3">
-        <Avatar size="sm" name={`${user?.firstName ?? ''} ${user?.lastName ?? ''}`} className="bg-accent-400 text-ink-900" />
+        <Avatar size="sm" name={`${user?.firstName ?? ''} ${user?.lastName ?? ''}`} className="bg-accent-600 text-white" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-body font-medium text-ink-50">
             {user?.firstName} {user?.lastName}

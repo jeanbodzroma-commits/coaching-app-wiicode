@@ -144,7 +144,7 @@ function NextSession({ session, status, onClick }) {
       <p className="text-body-md text-white/80">{time} · {session.duration} min</p>
       <p className="mt-1 text-body text-white/70">
         Coach : {session.coach?.firstName} {session.coach?.lastName}
-        {status === 'WAITING' && <span className="ml-2 inline-block rounded-full bg-accent-400 px-2 py-0.5 text-caption font-semibold text-ink-900">En attente partenaire</span>}
+        {status === 'WAITING' && <span className="ml-2 inline-block rounded-full bg-accent-600 px-2 py-0.5 text-caption font-semibold text-white">En attente partenaire</span>}
       </p>
       <div className="mt-4">
         <p className="mb-1 text-caption uppercase tracking-wider text-white/60">Dans</p>
