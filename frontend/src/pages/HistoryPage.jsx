@@ -45,7 +45,7 @@ export default function HistoryPage() {
       </header>
 
       {/* Sticky filter bar */}
-      <Card padding="sm" className="sticky top-0 z-10 flex flex-wrap items-center gap-2 !p-3 lg:top-14">
+      <Card padding="sm" className="sticky top-16 z-10 flex flex-wrap items-center gap-2 !p-3 lg:top-14">
         <span className="inline-flex items-center gap-1 text-caption text-ink-500">
           <Filter className="h-3.5 w-3.5" strokeWidth={1.75} /> Filtres
         </span>

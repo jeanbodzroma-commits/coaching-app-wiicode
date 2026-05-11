@@ -9,4 +9,19 @@ export default defineConfig({
       '/api': { target: 'http://localhost:3000', changeOrigin: true },
     },
   },
+  build: {
+    chunkSizeWarningLimit: 700,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor':  ['react', 'react-dom', 'react-router-dom'],
+          'query-vendor':  ['@tanstack/react-query', 'axios'],
+          'motion-vendor': ['framer-motion'],
+          'chart-vendor':  ['recharts'],
+          'icons-vendor':  ['lucide-react'],
+          'form-vendor':   ['react-hook-form'],
+        },
+      },
+    },
+  },
 })
