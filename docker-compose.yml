@@ -2,16 +2,17 @@ services:
   db:
     image: postgres:16-alpine
     container_name: coaching-db
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: coaching
-      POSTGRES_PASSWORD: coaching
-      POSTGRES_DB: coaching_db
+      POSTGRES_USER: ${POSTGRES_USER:-coaching}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-coaching}
+      POSTGRES_DB: ${POSTGRES_DB:-coaching_db}
     volumes:
       - db-data:/var/lib/postgresql/data
     ports:
-      - "5433:5432"
+      - "${BIND_IP:-0.0.0.0}:${DB_HOST_PORT:-5433}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U coaching -d coaching_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-coaching} -d ${POSTGRES_DB:-coaching_db}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -19,26 +20,32 @@ services:
   backend:
     build: ./backend
     container_name: coaching-backend
+    restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://coaching:coaching@db:5432/coaching_db
-      JWT_SECRET: dev_secret_change_me
-      JWT_EXPIRES_IN: 7d
+      DATABASE_URL: postgresql://${POSTGRES_USER:-coaching}:${POSTGRES_PASSWORD:-coaching}@db:5432/${POSTGRES_DB:-coaching_db}
+      JWT_SECRET: ${JWT_SECRET:-dev_secret_change_me}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       PORT: 3000
-      NODE_ENV: development
-      FRONTEND_URL: http://localhost:5173
+      NODE_ENV: ${NODE_ENV:-development}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_COACH_PASSWORD: ${SEED_COACH_PASSWORD:-}
+      SEED_EMPLOYEE_PASSWORD: ${SEED_EMPLOYEE_PASSWORD:-}
+      SEED_DEMO_PASSWORD: ${SEED_DEMO_PASSWORD:-}
     depends_on:
       db:
         condition: service_healthy
     ports:
-      - "3000:3000"
+      - "${BIND_IP:-0.0.0.0}:${BACKEND_HOST_PORT:-3000}:3000"
 
   frontend:
     build: ./frontend
     container_name: coaching-frontend
+    restart: unless-stopped
     depends_on:
       - backend
     ports:
-      - "5173:80"
+      - "${BIND_IP:-0.0.0.0}:${FRONTEND_HOST_PORT:-5173}:80"
 
 volumes:
   db-data:

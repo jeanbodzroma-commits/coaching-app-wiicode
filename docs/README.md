@@ -91,7 +91,88 @@ Health check : `GET /health`.
 | Employé | `employe@wiicode.fr` | `Wiicode-Employe-Coaching-2025!` | `SEED_EMPLOYEE_PASSWORD` |
 
 > Comptes démo additionnels (seed étendu) : `sarah.coach@wiicode.fr`, `antoine.coach@wiicode.fr` + 12 employés `<prenom>.<nom>@wiicode.fr` — tous avec `demo@1234` (override `SEED_DEMO_PASSWORD`).
-> Les overrides sont lus à la **première** exécution du seed (DB vide). Renseigner les env vars dans Render **avant** le premier déploiement pour ne pas exposer les mots de passe par défaut.
+> Les overrides sont lus à la **première** exécution du seed (DB vide). Renseigner les env vars **avant** le premier déploiement pour ne pas exposer les mots de passe par défaut.
+
+---
+
+## Déploiement Docker (serveur self-hosted derrière nginx)
+
+### 1. Préparer le fichier `.env` sur le serveur
+
+```bash
+cp .env.production.example .env
+# Édite .env, remplace les <…> par tes vraies valeurs
+nano .env
+```
+
+Génère `JWT_SECRET` avec `openssl rand -hex 64`. Idem pour `POSTGRES_PASSWORD` et chaque `SEED_*_PASSWORD`.
+
+### 2. Lancer la stack
+
+```bash
+docker compose up -d --build
+docker compose logs -f backend   # vérifier que le seed a tourné avec les bons mots de passe
+```
+
+### 3. Configurer nginx (snippet d'exemple)
+
+Le compose expose les ports applicatifs sur **127.0.0.1** uniquement (`BIND_IP=127.0.0.1`). nginx reverse-proxy depuis le port HTTPS public.
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name coaching.tondomaine.fr;
+
+    ssl_certificate     /etc/letsencrypt/live/coaching.tondomaine.fr/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/coaching.tondomaine.fr/privkey.pem;
+
+    client_max_body_size 5M;
+
+    location / {
+        proxy_pass http://127.0.0.1:5173;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+server {
+    listen 80;
+    server_name coaching.tondomaine.fr;
+    return 301 https://$host$request_uri;
+}
+```
+
+Recharger nginx (`sudo nginx -t && sudo systemctl reload nginx`). Le navigateur attaque `https://coaching.tondomaine.fr` → nginx terminate TLS → reverse-proxy vers `127.0.0.1:5173` (container frontend) → nginx interne forward `/api/*` vers `backend:3000`.
+
+### 4. Vérifications post-déploiement
+
+- `curl https://coaching.tondomaine.fr/` → 200, sert `index.html`
+- `curl https://coaching.tondomaine.fr/api/health` → `{"status":"ok","db_set":true,…}`
+- Login admin avec le mot de passe de `SEED_ADMIN_PASSWORD` → token retourné
+
+### 5. Backups DB
+
+Cron quotidien minimal (à coller dans `/etc/cron.d/coaching-pgdump`) :
+
+```cron
+0 3 * * * root docker exec coaching-db pg_dump -U coaching coaching_db | gzip > /var/backups/coaching/coaching_$(date +\%Y\%m\%d).sql.gz
+```
+
+Crée d'abord `mkdir -p /var/backups/coaching && chown root:root /var/backups/coaching && chmod 700 /var/backups/coaching`. Penser à exporter régulièrement hors-serveur (rsync vers un autre host, ou rclone vers un bucket S3-compatible).
+
+### 6. Mises à jour
+
+```bash
+cd ~/coaching-app-wiicode
+git pull
+docker compose up -d --build
+```
+
+Le seed ne se ré-exécute pas (DB déjà peuplée), aucune perte de données. Les migrations Prisma futures s'appliqueront via `prisma db push` au démarrage du backend.
+
+> ⚠️ **Avant de pull une version qui modifie `prisma/schema.prisma`**, fais un backup `pg_dump` au préalable — `db push` peut détruire des colonnes.
 
 ---
 
