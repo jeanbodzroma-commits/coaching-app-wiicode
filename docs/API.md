@@ -16,7 +16,7 @@
 ### POST `/api/auth/login`
 
 ```json
-{ "email": "admin@wiicode.fr", "password": "admin1234" }
+{ "email": "admin@wiicode.fr", "password": "admin@1234" }
 ```
 
 Réponse 200 :

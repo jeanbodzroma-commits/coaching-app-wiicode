@@ -28,9 +28,9 @@ async function upsertUser({ email, firstName, lastName, role, password }) {
 
 // ─── Canonical accounts ───────────────────────────────────────────────────
 async function upsertCanonicalAccounts() {
-  const admin = await upsertUser({ email: 'admin@wiicode.fr',   firstName: 'Admin',  lastName: 'Wiicode', role: 'ADMIN',    password: 'admin1234' })
-  const coach = await upsertUser({ email: 'coach@wiicode.fr',   firstName: 'Jean',   lastName: 'Coach',   role: 'COACH',    password: 'coach1234' })
-  const emp   = await upsertUser({ email: 'employe@wiicode.fr', firstName: 'Marie',  lastName: 'Dupont',  role: 'EMPLOYEE', password: 'employe1234' })
+  const admin = await upsertUser({ email: 'admin@wiicode.fr',   firstName: 'Admin',  lastName: 'Wiicode', role: 'ADMIN',    password: process.env.SEED_ADMIN_PASSWORD    || 'admin@1234' })
+  const coach = await upsertUser({ email: 'coach@wiicode.fr',   firstName: 'Jean',   lastName: 'Coach',   role: 'COACH',    password: process.env.SEED_COACH_PASSWORD    || 'coach@1234' })
+  const emp   = await upsertUser({ email: 'employe@wiicode.fr', firstName: 'Marie',  lastName: 'Dupont',  role: 'EMPLOYEE', password: process.env.SEED_EMPLOYEE_PASSWORD || 'employe@1234' })
   return { admin, coach, emp }
 }
 
@@ -98,8 +98,8 @@ const NOTIF_SAMPLES = [
 
 async function seedExtended(canonical) {
   // Additional coaches
-  const coach2 = await upsertUser({ email: 'sarah.coach@wiicode.fr',   firstName: 'Sarah',   lastName: 'Martin',  role: 'COACH', password: 'demo1234' })
-  const coach3 = await upsertUser({ email: 'antoine.coach@wiicode.fr', firstName: 'Antoine', lastName: 'Bernard', role: 'COACH', password: 'demo1234' })
+  const coach2 = await upsertUser({ email: 'sarah.coach@wiicode.fr',   firstName: 'Sarah',   lastName: 'Martin',  role: 'COACH', password: (process.env.SEED_DEMO_PASSWORD || 'demo@1234') })
+  const coach3 = await upsertUser({ email: 'antoine.coach@wiicode.fr', firstName: 'Antoine', lastName: 'Bernard', role: 'COACH', password: (process.env.SEED_DEMO_PASSWORD || 'demo@1234') })
   const coaches = [canonical.coach, coach2, coach3]
 
   // Additional employees (12 randomly named)
@@ -111,7 +111,7 @@ async function seedExtended(canonical) {
     let email = `${fn.toLowerCase()}.${ln.toLowerCase().replace(/[^a-z]/g, '')}@wiicode.fr`
     if (usedEmails.has(email)) email = email.replace('@', `${i}@`)
     usedEmails.add(email)
-    const u = await upsertUser({ email, firstName: fn, lastName: ln, role: 'EMPLOYEE', password: 'demo1234' })
+    const u = await upsertUser({ email, firstName: fn, lastName: ln, role: 'EMPLOYEE', password: (process.env.SEED_DEMO_PASSWORD || 'demo@1234') })
     employees.push(u)
   }
 
@@ -330,12 +330,12 @@ async function seedExtended(canonical) {
 function printCredentials() {
   console.log('')
   console.log('✓ Comptes principaux (toujours présents) :')
-  console.log('  - admin@wiicode.fr   / admin1234')
-  console.log('  - coach@wiicode.fr   / coach1234')
-  console.log('  - employe@wiicode.fr / employe1234')
+  console.log('  - admin@wiicode.fr   / admin@1234   (override : SEED_ADMIN_PASSWORD)')
+  console.log('  - coach@wiicode.fr   / coach@1234   (override : SEED_COACH_PASSWORD)')
+  console.log('  - employe@wiicode.fr / employe@1234 (override : SEED_EMPLOYEE_PASSWORD)')
   console.log('Comptes additionnels (seed étendu) :')
-  console.log('  - sarah.coach@wiicode.fr, antoine.coach@wiicode.fr  / demo1234')
-  console.log('  - <prenom>.<nom>@wiicode.fr (12 employés)           / demo1234')
+  console.log('  - sarah.coach@wiicode.fr, antoine.coach@wiicode.fr  / demo@1234')
+  console.log('  - <prenom>.<nom>@wiicode.fr (12 employés)           / demo@1234')
 }
 
 async function main() {

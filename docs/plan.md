@@ -207,7 +207,7 @@ Création de `frontend/src/components/ui/` :
 
 ## 5. Checklist de non-régression (à rejouer après chaque phase)
 
-### Employé (`employe@wiicode.fr` / `employe1234`)
+### Employé (`employe@wiicode.fr` / `employe@1234`)
 - [ ] Login OK
 - [ ] Dashboard : stats + prochaines sessions visibles
 - [ ] Réserver une session Solo libre
@@ -217,7 +217,7 @@ Création de `frontend/src/components/ui/` :
 - [ ] Cloche : notifications affichées, badge unread, "marquer tout lu"
 - [ ] Voir objectifs et programmes, ajouter un suivi de progression
 
-### Coach (`coach@wiicode.fr` / `coach1234`)
+### Coach (`coach@wiicode.fr` / `coach@1234`)
 - [ ] Login OK
 - [ ] Créer un créneau SOLO et un DUO
 - [ ] Modifier un créneau futur (non verrouillé)
@@ -226,7 +226,7 @@ Création de `frontend/src/components/ui/` :
 - [ ] Dashboard coach : todaySessions, fillRate, needsAttention
 - [ ] Créer objectif + programme pour un employé, ajouter un ProgressLog
 
-### Admin (`admin@wiicode.fr` / `admin1234`)
+### Admin (`admin@wiicode.fr` / `admin@1234`)
 - [ ] Login OK
 - [ ] CRUD utilisateurs : créer, modifier, désactiver (logique `isActive=false`)
 - [ ] Pénalités : strike manuel, déblocage manuel
