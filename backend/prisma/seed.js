@@ -28,9 +28,9 @@ async function upsertUser({ email, firstName, lastName, role, password }) {
 
 // ─── Canonical accounts ───────────────────────────────────────────────────
 async function upsertCanonicalAccounts() {
-  const admin = await upsertUser({ email: 'admin@wiicode.fr',   firstName: 'Admin',  lastName: 'Wiicode', role: 'ADMIN',    password: process.env.SEED_ADMIN_PASSWORD    || 'admin@1234' })
-  const coach = await upsertUser({ email: 'coach@wiicode.fr',   firstName: 'Jean',   lastName: 'Coach',   role: 'COACH',    password: process.env.SEED_COACH_PASSWORD    || 'coach@1234' })
-  const emp   = await upsertUser({ email: 'employe@wiicode.fr', firstName: 'Marie',  lastName: 'Dupont',  role: 'EMPLOYEE', password: process.env.SEED_EMPLOYEE_PASSWORD || 'employe@1234' })
+  const admin = await upsertUser({ email: 'admin@wiicode.fr',   firstName: 'Admin',  lastName: 'Wiicode', role: 'ADMIN',    password: process.env.SEED_ADMIN_PASSWORD    || 'Wiicode-Admin-Coaching-2025!' })
+  const coach = await upsertUser({ email: 'coach@wiicode.fr',   firstName: 'Jean',   lastName: 'Coach',   role: 'COACH',    password: process.env.SEED_COACH_PASSWORD    || 'Wiicode-Coach-Coaching-2025!' })
+  const emp   = await upsertUser({ email: 'employe@wiicode.fr', firstName: 'Marie',  lastName: 'Dupont',  role: 'EMPLOYEE', password: process.env.SEED_EMPLOYEE_PASSWORD || 'Wiicode-Employe-Coaching-2025!' })
   return { admin, coach, emp }
 }
 
@@ -330,9 +330,9 @@ async function seedExtended(canonical) {
 function printCredentials() {
   console.log('')
   console.log('✓ Comptes principaux (toujours présents) :')
-  console.log('  - admin@wiicode.fr   / admin@1234   (override : SEED_ADMIN_PASSWORD)')
-  console.log('  - coach@wiicode.fr   / coach@1234   (override : SEED_COACH_PASSWORD)')
-  console.log('  - employe@wiicode.fr / employe@1234 (override : SEED_EMPLOYEE_PASSWORD)')
+  console.log('  - admin@wiicode.fr   / Wiicode-Admin-Coaching-2025!   (override : SEED_ADMIN_PASSWORD)')
+  console.log('  - coach@wiicode.fr   / Wiicode-Coach-Coaching-2025!   (override : SEED_COACH_PASSWORD)')
+  console.log('  - employe@wiicode.fr / Wiicode-Employe-Coaching-2025! (override : SEED_EMPLOYEE_PASSWORD)')
   console.log('Comptes additionnels (seed étendu) :')
   console.log('  - sarah.coach@wiicode.fr, antoine.coach@wiicode.fr  / demo@1234')
   console.log('  - <prenom>.<nom>@wiicode.fr (12 employés)           / demo@1234')

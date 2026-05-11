@@ -86,9 +86,9 @@ Health check : `GET /health`.
 
 | Rôle | Email | Mot de passe par défaut | Override env (production) |
 |------|-------|-------------------------|----------------------------|
-| Admin | `admin@wiicode.fr` | `admin@1234` | `SEED_ADMIN_PASSWORD` |
-| Coach | `coach@wiicode.fr` | `coach@1234` | `SEED_COACH_PASSWORD` |
-| Employé | `employe@wiicode.fr` | `employe@1234` | `SEED_EMPLOYEE_PASSWORD` |
+| Admin | `admin@wiicode.fr` | `Wiicode-Admin-Coaching-2025!` | `SEED_ADMIN_PASSWORD` |
+| Coach | `coach@wiicode.fr` | `Wiicode-Coach-Coaching-2025!` | `SEED_COACH_PASSWORD` |
+| Employé | `employe@wiicode.fr` | `Wiicode-Employe-Coaching-2025!` | `SEED_EMPLOYEE_PASSWORD` |
 
 > Comptes démo additionnels (seed étendu) : `sarah.coach@wiicode.fr`, `antoine.coach@wiicode.fr` + 12 employés `<prenom>.<nom>@wiicode.fr` — tous avec `demo@1234` (override `SEED_DEMO_PASSWORD`).
 > Les overrides sont lus à la **première** exécution du seed (DB vide). Renseigner les env vars dans Render **avant** le premier déploiement pour ne pas exposer les mots de passe par défaut.
