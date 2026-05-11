@@ -1,21 +1,23 @@
 # Coaching App — Wiicode
 
 Application web interne de gestion des sessions de coaching sportif.
-Permet au coach de créer des créneaux, aux employés de réserver des sessions,
-et à l'admin de superviser l'ensemble de l'activité.
+Le coach crée des créneaux, les employés réservent, l'admin supervise.
 
 ---
 
-## Fonctionnalités clés
+## Fonctionnalités implémentées
 
-- Authentification avec gestion des rôles (admin / coach / employé)
-- Création et gestion des créneaux par le coach (CRUD)
-- Réservation et annulation de sessions par les employés
-- Gestion stricte des types Solo et Duo (capacité, logique d'attente)
-- Dashboard adapté par rôle (planning, historique, stats)
-- Historique des sessions avec statuts de présence
-- Système de pénalités pour absences non justifiées *(niveau 2)*
-- Suivi des objectifs et programmes sportifs *(niveau 2)*
+- Authentification JWT avec 3 rôles : `ADMIN` / `COACH` / `EMPLOYEE`
+- CRUD utilisateurs (admin) avec désactivation logique (`isActive`)
+- CRUD créneaux (coach / admin), verrouillage des créneaux passés, protection à la suppression
+- Réservation / annulation de sessions par les employés
+- Gestion stricte Solo (1 place) et Duo (2 places, file d'attente d'un partenaire)
+- Marquage de présence post-session par le coach (PRESENT / ABSENT / CANCELLED)
+- Dashboards adaptés par rôle (employé, coach, admin)
+- Historique paginé avec filtres (type, présence, dates)
+- Pénalités automatiques : +1 strike par absence non justifiée, suspension de 7 jours à 3 strikes, déblocage manuel admin
+- Objectifs sportifs + programmes assignés par le coach, avec journal de progression
+- Notifications in-app (réservation, partenaire Duo, rappel, strike, déblocage)
 
 ---
 
@@ -23,133 +25,125 @@ et à l'admin de superviser l'ensemble de l'activité.
 
 | Couche | Technologie |
 |--------|-------------|
-| Frontend | React 18 + Vite + Tailwind CSS |
+| Frontend | React 18 + Vite 5 + Tailwind CSS 3 |
 | Routing | React Router v6 |
-| Appels API | Axios + React Query (TanStack) |
+| Data fetching | Axios + TanStack React Query 5 |
 | Formulaires | React Hook Form |
 | Backend | Node.js 20 + Express 4 |
-| ORM | Prisma 5 |
+| ORM | Prisma 5 (`@prisma/client`) |
 | Validation | Zod |
-| Auth | JWT + bcrypt |
+| Auth | JWT (`jsonwebtoken`) + bcrypt |
 | Base de données | PostgreSQL 16 |
-| Hébergement | Render (back + DB) + Vercel (front) |
+| Hébergement | Render (API + DB) + Vercel (front) |
 
 ---
 
 ## Prérequis
 
-- [Node.js 20 LTS](https://nodejs.org/) installé sur la machine
-- [npm](https://www.npmjs.com/) (inclus avec Node.js)
-- [PostgreSQL 16](https://www.postgresql.org/) installé localement (ou accès à une instance distante)
-- Un éditeur de code (VS Code recommandé)
-- Git
+- [Node.js 20 LTS](https://nodejs.org/)
+- [PostgreSQL 16](https://www.postgresql.org/) (local ou distant)
+- npm, Git
 
 ---
 
 ## Installation
 
-### 1. Cloner le projet
-
 ```bash
-git clone https://github.com/wiicode/coaching-app.git
-cd coaching-app
-```
+git clone <repo>
+cd coaching-app-wiicode
 
-### 2. Installer les dépendances backend
-
-```bash
+# Backend
 cd backend
+cp .env.example .env       # éditer DATABASE_URL et JWT_SECRET
 npm install
-```
+npx prisma migrate dev     # crée les tables
+node prisma/seed.js        # comptes de test (admin / coach / employé)
 
-### 3. Configurer les variables d'environnement backend
-
-```bash
-cp .env.example .env
-# Éditer .env avec tes valeurs (DATABASE_URL, JWT_SECRET…)
-```
-
-### 4. Initialiser la base de données
-
-```bash
-npx prisma migrate dev
-npx prisma db seed   # optionnel : données de test
-```
-
-### 5. Installer les dépendances frontend
-
-```bash
+# Frontend (dans un autre terminal)
 cd ../frontend
+cp .env.example .env       # VITE_API_URL=http://localhost:3000
 npm install
 ```
 
-### 6. Configurer les variables d'environnement frontend
+---
+
+## Lancer en développement
 
 ```bash
-cp .env.example .env
-# Éditer VITE_API_URL avec l'URL du backend
+# Backend → http://localhost:3000
+cd backend && npm run dev
+
+# Frontend → http://localhost:5173
+cd frontend && npm run dev
 ```
+
+Le frontend Vite proxifie `/api` vers `http://localhost:3000` (cf. `vite.config.js`).
+Health check : `GET /health`.
 
 ---
 
-## Lancer le projet en développement
+## Comptes de seed
 
-### Backend
-
-```bash
-cd backend
-npm run dev
-# Écoute sur http://localhost:3000
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm run dev
-# Écoute sur http://localhost:5173
-```
+| Rôle | Email | Mot de passe |
+|------|-------|--------------|
+| Admin | `admin@wiicode.fr` | `admin1234` |
+| Coach | `coach@wiicode.fr` | `coach1234` |
+| Employé | `employe@wiicode.fr` | `employe1234` |
 
 ---
 
-## Structure des dossiers
+## Structure des dossiers (état réel)
 
 ```
-coaching-app/
+coaching-app-wiicode/
+├── backend/
+│   ├── src/
+│   │   ├── app.js                  Config Express + montage des routes
+│   │   ├── routes/                 10 fichiers de routes (auth, users, sessions, …)
+│   │   ├── controllers/            Logique métier par module
+│   │   ├── middlewares/            auth, role, error
+│   │   ├── validators/             Schémas Zod
+│   │   └── utils/                  jwt, notify, penalties
+│   ├── prisma/
+│   │   ├── schema.prisma           7 modèles + 7 enums
+│   │   ├── seed.js                 Comptes admin/coach/employé + 1 session
+│   │   └── seed-test-session.js    Session passée pour tester l'attendance
+│   ├── server.js                   Point d'entrée
+│   ├── package.json
+│   └── .env.example
 │
-├── /frontend
-│   └── /src
-│       ├── /assets
-│       ├── /components
-│       ├── /pages
-│       ├── /layouts
-│       ├── /hooks
-│       ├── /services
-│       ├── /store
-│       ├── /utils
-│       └── /routes
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx                 Routes React Router
+│   │   ├── main.jsx                Bootstrap + QueryClient
+│   │   ├── pages/                  8 pages (Login, Dashboard, Planning, …)
+│   │   ├── components/             dashboard/, history/, programs/, notifications/
+│   │   ├── layouts/MainLayout.jsx  Sidebar + Outlet
+│   │   ├── routes/ProtectedRoute   Garde de routes par rôle
+│   │   ├── services/               9 services API (axios)
+│   │   ├── store/AuthContext.jsx   Auth globale + token localStorage
+│   │   └── utils/                  formatDate, libellés goals
+│   ├── index.html
+│   ├── vite.config.js              proxy /api → :3000
+│   ├── tailwind.config.js
+│   ├── vercel.json                 SPA rewrite
+│   └── .env.example
 │
-├── /backend
-│   ├── /src
-│   │   ├── /routes
-│   │   ├── /controllers
-│   │   ├── /middlewares
-│   │   ├── /validators
-│   │   └── /utils
-│   └── /prisma
-│       ├── schema.prisma
-│       └── /migrations
+├── docs/
+│   ├── README.md                   (ce fichier)
+│   ├── MODULES.md                  Découpage fonctionnel
+│   ├── STACK.md                    Choix techniques justifiés
+│   ├── ARCHITECTURE.md             Flux, conventions, sécurité
+│   ├── API.md                      Référence des endpoints REST
+│   ├── SCHEMA.md                   Schéma BDD commenté
+│   └── ROADMAP.md                  Avancement par module
 │
-├── /docs
-│   ├── MODULES.md
-│   ├── STACK.md
-│   ├── ARCHITECTURE.md
-│   ├── ROADMAP.md
-│   └── API.md          ← à venir
-│
-├── .gitignore
-└── README.md
+├── README.md
+├── server.js                       Reliquat — ne pas exécuter (cf. note)
+└── server_1.js                     Reliquat — ne pas exécuter (cf. note)
 ```
+
+> ⚠️ Les fichiers `server.js` et `server_1.js` à la racine sont des copies anciennes (`require('./src/app')` relatif à la racine — chemin invalide). Ils ne servent pas. L'entrée réelle est `backend/server.js`.
 
 ---
 
@@ -157,13 +151,16 @@ coaching-app/
 
 | Fichier | Contenu |
 |---------|---------|
-| [docs/MODULES.md](docs/MODULES.md) | Découpage fonctionnel, dépendances, priorités |
-| [docs/STACK.md](docs/STACK.md) | Choix techniques justifiés |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Flux de données, conventions de code |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Avancement par module, checklists |
+| [MODULES.md](MODULES.md) | Découpage fonctionnel des 10 modules |
+| [STACK.md](STACK.md) | Justification des choix techniques |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Architecture, flux d'authentification, conventions |
+| [API.md](API.md) | Référence complète des endpoints REST |
+| [SCHEMA.md](SCHEMA.md) | Modèle de données Prisma commenté |
+| [ROADMAP.md](ROADMAP.md) | Avancement par module |
 
 ---
 
 ## Statut
 
-> 🟡 En cours de cadrage — aucun code applicatif produit à ce stade.
+> 🟢 MVP fonctionnel — les 10 modules sont implémentés en backend et frontend.
+> Les migrations Prisma ne sont **pas** versionnées (`.gitignore` : `backend/prisma/migrations/`) — `prisma migrate dev` les régénère localement à partir du `schema.prisma`.

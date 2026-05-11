@@ -1,223 +1,192 @@
 # MODULES.md — Application Coaching Wiicode
 
-> Découpage fonctionnel du projet en modules indépendants.
-> Généré en phase de cadrage — aucun code produit à ce stade.
+> Découpage fonctionnel du projet en modules.
+> Mis à jour à partir du code source actuel : les 10 modules sont implémentés.
 
 ---
 
 ## Vue d'ensemble
 
-| # | Module | Priorité | Dépend de |
-|---|--------|----------|-----------|
-| 1 | Auth | CRITIQUE | — |
-| 2 | Utilisateurs | CRITIQUE | Auth |
-| 3 | Créneaux | CRITIQUE | Auth, Utilisateurs |
-| 4 | Réservations | CRITIQUE | Auth, Utilisateurs, Créneaux |
-| 5 | Gestion Solo/Duo | CRITIQUE | Réservations |
-| 6 | Dashboard | IMPORTANT | Réservations, Créneaux |
-| 7 | Historique | IMPORTANT | Réservations |
-| 8 | Pénalités | OPTIONNEL | Historique, Utilisateurs |
-| 9 | Objectifs & Programmes | OPTIONNEL | Utilisateurs |
-| 10 | Notifications | OPTIONNEL | Réservations, Auth |
+| # | Module | Priorité | Statut | Backend | Frontend |
+|---|--------|----------|--------|---------|----------|
+| 1 | Auth | CRITIQUE | ✅ | `auth.*` | `LoginPage`, `AuthContext`, `ProtectedRoute` |
+| 2 | Utilisateurs | CRITIQUE | ✅ | `users.*` | `UsersPage` |
+| 3 | Créneaux | CRITIQUE | ✅ | `sessions.*` | `PlanningPage`, `SessionDetailPage` |
+| 4 | Réservations | CRITIQUE | ✅ | `reservations.*` | (inline dans Planning + Detail) |
+| 5 | Gestion Solo/Duo | CRITIQUE | ✅ | logique dans `reservations.controller.js` | `PlanningPage`, `SessionDetailPage` |
+| 6 | Dashboard | IMPORTANT | ✅ | `dashboard.controller.js` | `DashboardPage` + 3 composants par rôle |
+| 7 | Historique | IMPORTANT | ✅ | `history.controller.js` | `HistoryPage` + 3 composants par rôle |
+| 8 | Pénalités | NIVEAU 2 | ✅ | `penalties.*` + intégré aux réservations | `PenaltiesPage` |
+| 9 | Objectifs & Programmes | NIVEAU 2 | ✅ | `goals.*` + `programs.*` | `ProgramsPage` + `CoachPrograms` / `EmployeePrograms` |
+| 10 | Notifications | BONUS | ✅ in-app | `notifications.*` + util `notify` | `NotificationBell` |
 
 ---
 
 ## Détail des modules
 
----
-
 ### Module 1 — Auth
-**Priorité : 🔴 CRITIQUE**
 
-Gère l'authentification des utilisateurs : connexion, gestion de session, et attribution des rôles (admin / coach / employé). C'est le socle de l'application — rien ne fonctionne sans lui.
+Authentification par email + mot de passe, JWT signé côté backend (`jsonwebtoken`), stocké en `localStorage` côté frontend. Le token est rejoué dans un header `Authorization: Bearer …` par un intercepteur axios.
 
-- **Fonctionnalités :**
-  - Connexion (email + mot de passe)
-  - Gestion des rôles (admin / coach / employé)
-  - Protection des routes selon le rôle
-  - Inscription (à décider : libre ou admin-only — voir questions client)
-
-- **Dépendances :** aucune
+- **Endpoints** : `POST /api/auth/login`, `GET /api/auth/me`
+- **Mots de passe** : hashés `bcrypt` (10 rounds)
+- **Middleware** : `auth.middleware.js` vérifie le JWT, `role.middleware.js` filtre par rôle
+- **Frontend** : `AuthContext` charge `/auth/me` au boot si un token existe, `ProtectedRoute` redirige les utilisateurs non connectés ou sans le bon rôle
+- **Compte désactivé** : `isActive=false` ⇒ login refusé (`401 Identifiants invalides`)
 
 ---
 
 ### Module 2 — Utilisateurs
-**Priorité : 🔴 CRITIQUE**
 
-Gestion des comptes utilisateurs : création, consultation, modification. L'admin peut créer des comptes et gérer les rôles. Ce module expose les données de base nécessaires aux autres modules.
+CRUD réservé à l'admin. La suppression est une désactivation logique (`isActive=false`) — aucun enregistrement n'est physiquement supprimé.
 
-- **Fonctionnalités :**
-  - CRUD des comptes utilisateurs (admin)
-  - Consultation du profil (tous rôles)
-  - Attribution / modification des rôles
-
-- **Dépendances :** Auth
+- **Endpoints** : `GET/POST /api/users`, `GET/PUT/DELETE /api/users/:id` (tous `ADMIN`)
+- **Champs** : `email`, `password`, `firstName`, `lastName`, `role` (`ADMIN` / `COACH` / `EMPLOYEE`)
+- **Sortie** : sélection sûre (jamais le hash de mot de passe)
+- **Validation** : Zod (`createUserSchema`, `updateUserSchema`)
+- **Conflit email** : Prisma `P2002` ⇒ `409 Email déjà utilisé`
 
 ---
 
-### Module 3 — Créneaux
-**Priorité : 🔴 CRITIQUE**
+### Module 3 — Créneaux (Sessions)
 
-Permet au coach de créer et gérer les créneaux d'entraînement. C'est le module central côté coach — sans créneaux, rien à réserver.
+Création par le coach (ou l'admin) avec date, durée (15–180 min) et type (SOLO/DUO). La capacité est dérivée du type (`SOLO=1`, `DUO=2`) côté serveur.
 
-- **Fonctionnalités :**
-  - Créer un créneau (date, heure, durée, type, capacité)
-  - Modifier un créneau (si non passé)
-  - Supprimer un créneau (avec règles de protection)
-  - Verrouillage automatique des créneaux passés
-  - Consultation des créneaux (tous rôles)
-
-- **Dépendances :** Auth, Utilisateurs
+- **Endpoints** : `GET /api/sessions` (tous), `GET /api/sessions/:id`, `POST/PUT/DELETE` (coach/admin)
+- **Verrouillage** : `isLocked=true` empêche la modification
+- **Suppression** : refusée si une réservation `CONFIRMED`/`WAITING` existe
+- **Listing** : `GET /api/sessions` retourne `confirmedCount` et `waitingCount` agrégés
 
 ---
 
 ### Module 4 — Réservations
-**Priorité : 🔴 CRITIQUE**
 
-Permet aux employés de réserver et annuler des créneaux, avec toutes les règles métier associées. C'est le module central côté employé.
+L'employé réserve un créneau. Toutes les règles métier sont concentrées dans `reservations.controller.js#create` :
 
-- **Fonctionnalités :**
-  - Voir les créneaux disponibles
-  - Réserver un créneau
-  - Annuler une réservation
-  - Contrôles métier :
-    - pas de réservation sur créneau complet
-    - pas de double réservation simultanée
-    - pas de réservation dans le passé
-    - limite max de sessions par semaine (valeur à définir)
+- pas de réservation si l'utilisateur est suspendu (`blockedUntil > now`)
+- pas de double réservation active sur la même session (réservation `CANCELLED` réactivable)
+- pas de réservation sur session verrouillée ou passée
+- **Endpoints** :
+  - `GET /api/reservations/me`
+  - `POST /api/reservations` (employé/admin)
+  - `DELETE /api/reservations/:id` (auteur ou coach/admin)
+  - `PATCH /api/reservations/:id/attendance` (coach/admin)
 
-- **Dépendances :** Auth, Utilisateurs, Créneaux
+L'annulation après le créneau passé est refusée.
 
 ---
 
 ### Module 5 — Gestion Solo / Duo
-**Priorité : 🔴 CRITIQUE**
 
-Couche métier spécifique aux types de sessions Solo et Duo. Étroitement lié au module Réservations mais suffisamment complexe pour être isolé.
+Logique encodée dans `reservations.controller.js#create` et `#cancel` :
 
-- **Fonctionnalités :**
-  - Solo : réservation directe, 1 seule place
-  - Duo : 2 places max
-    - réserver seul → en attente d'un second participant
-    - réserver à deux directement (option avancée — à clarifier)
-    - blocage si 1 seule place restante en mode Duo
-
-- **Dépendances :** Réservations
+- **Solo** : 1 place. Si `confirmedCount >= 1` → 400 « Créneau Solo complet ».
+- **Duo** :
+  - 1ʳᵉ réservation → statut `WAITING` (en attente d'un partenaire).
+  - 2ᵉ réservation → la `WAITING` existante passe `CONFIRMED`, la nouvelle devient `CONFIRMED`. Notification `DUO_PARTNER_JOINED` envoyée au partenaire.
+  - Si déjà 2 `CONFIRMED` → 400 « Créneau Duo complet ».
+  - **Annulation Duo** : si un `CONFIRMED` annule alors qu'un partenaire est déjà confirmé, ce dernier repasse `WAITING` et reçoit `DUO_PARTNER_LEFT`.
 
 ---
 
 ### Module 6 — Dashboard
-**Priorité : 🟡 IMPORTANT**
 
-Tableau de bord adapté à chaque rôle. Agrège les données des autres modules pour offrir une vue synthétique à chaque type d'utilisateur.
+Endpoint unique `GET /api/dashboard` qui retourne des données différentes selon le rôle :
 
-- **Fonctionnalités :**
-  - Dashboard Employé : prochaines sessions, historique, compteur de sessions
-  - Dashboard Coach : planning du jour, taux de remplissage, liste des participants
-  - Dashboard Admin : stats globales, utilisateurs actifs (optionnel)
+- **EMPLOYEE** : prochaine session, 5 prochaines, 5 dernières, stats (à venir / présent / absent / total).
+- **COACH** : sessions du jour avec participants, 7 prochaines avec `fillRate`, sessions passées sans présence marquée, compteurs.
+- **ADMIN** : agrégats utilisateurs (par rôle), sessions, statuts de réservations, 5 sessions récentes.
 
-- **Dépendances :** Réservations, Créneaux
+Le frontend rafraîchit la query `['dashboard']` toutes les 60 s.
 
 ---
 
 ### Module 7 — Historique
-**Priorité : 🟡 IMPORTANT**
 
-Stocke et affiche l'historique des sessions passées pour chaque utilisateur, avec les statuts de présence. Base nécessaire au module Pénalités.
+`GET /api/history` paginé (`limit` 15 par défaut), filtres :
 
-- **Fonctionnalités :**
-  - Liste des sessions passées par utilisateur
-  - Statuts : présent / absent / annulé
-  - Saisie du statut par le coach après la session
+- `type` : `SOLO` | `DUO`
+- `attendance` : `PRESENT` | `ABSENT` | `CANCELLED` | `UNMARKED`
+- `from` / `to` : bornes de date
+- `coachId` : (admin uniquement)
 
-- **Dépendances :** Réservations
+Trois branches selon le rôle :
 
----
-
-### Module 8 — Pénalités *(Niveau 2)*
-**Priorité : 🟢 OPTIONNEL**
-
-Système de strikes pour les absences non justifiées. Déclenche un blocage temporaire après un certain nombre d'absences. Nécessite que le module Historique soit opérationnel.
-
-- **Fonctionnalités :**
-  - Enregistrement automatique d'un strike en cas d'absence non justifiée
-  - Compteur de strikes par utilisateur
-  - Blocage temporaire après X strikes (valeur à définir)
-  - Déblocage manuel par l'admin
-
-- **Dépendances :** Historique, Utilisateurs
+- **EMPLOYEE** : ses propres réservations passées + stats (taux de présence).
+- **COACH** : ses sessions passées avec participants.
+- **ADMIN** : toutes les sessions passées + liste des coachs (pour le filtre).
 
 ---
 
-### Module 9 — Objectifs & Programmes *(Niveau 2)*
-**Priorité : 🟢 OPTIONNEL**
+### Module 8 — Pénalités
 
-Permet au coach d'assigner des objectifs sportifs et des programmes personnalisés aux employés. Les employés peuvent consulter leur progression.
+Configuration en dur dans `backend/src/utils/penalties.utils.js` :
 
-- **Fonctionnalités :**
-  - Assignation d'un objectif par le coach (perte de poids, cardio, prise de masse)
-  - Association d'un programme (texte / exercices)
-  - Consultation de l'objectif et suivi de la progression côté employé
+- `STRIKE_THRESHOLD = 3` — au 3ᵉ strike non couvert, suspension auto.
+- `BLOCK_DAYS = 7` — durée de suspension.
 
-- **Dépendances :** Utilisateurs
+Flux automatique :
 
----
+- Coach passe une réservation à `ABSENT` ⇒ `+1 strike`. Si on repasse à autre chose : `-1 strike`.
+- Au seuil et sans `blockedUntil` déjà posé, on pose `blockedUntil = now + 7j`.
+- L'employé suspendu ne peut plus réserver (`403`).
 
-### Module 10 — Notifications *(Bonus)*
-**Priorité : 🟢 OPTIONNEL**
+Endpoints `ADMIN` :
 
-Envoie des notifications aux utilisateurs à des moments clés (confirmation de réservation, rappel avant session). Canal à définir avec le client (email, in-app, ou les deux).
-
-- **Fonctionnalités :**
-  - Confirmation de réservation
-  - Rappel avant session (délai à configurer)
-  - Notification d'annulation
-
-- **Dépendances :** Réservations, Auth
+- `GET /api/penalties` : employés avec `strikes > 0`
+- `POST /api/penalties/:userId/unblock` : remise à 0 + déblocage
+- `POST /api/penalties/:userId/strike` : strike manuel (raison requise)
 
 ---
 
-## Ordre de construction recommandé
+### Module 9 — Objectifs & Programmes
 
-```
-PHASE 1 — Fondations (pas de dépendances externes)
-  └── Module 1 : Auth
+Deux entités distinctes mais liables (`Program.goalId` optionnel et unique).
 
-PHASE 2 — Données de base
-  └── Module 2 : Utilisateurs  (dépend de : Auth)
+- **Goals** : type (`WEIGHT_LOSS` / `CARDIO` / `MUSCLE_GAIN` / `FLEXIBILITY` / `OTHER`), `status` (`ACTIVE`/`COMPLETED`/`PAUSED`), date cible, employé, coach.
+- **Programs** : `title` + `content` libre (texte multi-lignes), optionnellement rattaché à un objectif.
+- **ProgressLog** : note + valeur numérique optionnelle (poids, temps…), tracé par n'importe qui (coach ou employé).
 
-PHASE 3 — Cœur métier côté coach
-  └── Module 3 : Créneaux  (dépend de : Auth, Utilisateurs)
+Visibilité :
 
-PHASE 4 — Cœur métier côté employé
-  ├── Module 4 : Réservations  (dépend de : Auth, Utilisateurs, Créneaux)
-  └── Module 5 : Gestion Solo/Duo  (dépend de : Réservations)
-
-PHASE 5 — Visualisation & suivi
-  ├── Module 6 : Dashboard  (dépend de : Réservations, Créneaux)
-  └── Module 7 : Historique  (dépend de : Réservations)
-
-PHASE 6 — Fonctionnalités avancées (Niveau 2)
-  ├── Module 8 : Pénalités  (dépend de : Historique, Utilisateurs)
-  └── Module 9 : Objectifs & Programmes  (dépend de : Utilisateurs)
-
-PHASE 7 — Bonus
-  └── Module 10 : Notifications  (dépend de : Réservations, Auth)
-```
+- `EMPLOYEE` voit ses propres objectifs/programmes.
+- `COACH` voit ceux qu'il a créés.
+- `ADMIN` voit tout.
 
 ---
 
-## Critères de validation minimaux (MVP)
+### Module 10 — Notifications
 
-Le projet est considéré validé si les modules 1 à 5 sont fonctionnels :
+Notifications **in-app uniquement** (pas d'email). Stockées en base, affichées via un bell icon dans la sidebar (`NotificationBell.jsx`), rafraîchissement toutes les 30 s.
+
+Types (`NotificationType` enum) :
+
+- `RESERVATION_CONFIRMED`, `RESERVATION_CANCELLED`
+- `SESSION_REMINDER`
+- `DUO_PARTNER_JOINED`, `DUO_PARTNER_LEFT`
+- `STRIKE_ADDED`, `ACCOUNT_UNBLOCKED`
+
+Le helper `utils/notify.js` est appelé par les contrôleurs concernés. Erreur silencieuse — une notif ratée ne plante pas la requête principale.
+
+L'envoi de rappels (`SESSION_REMINDER`) est manuel : `POST /api/notifications/generate-reminders` (admin). Il génère les rappels pour les sessions à venir dans les 24 h, en dédupliquant sur la dernière heure. **Pas de cron** configuré — il faut appeler cet endpoint depuis l'extérieur.
+
+---
+
+## Ordre de construction réel
+
+L'ordre de cadrage initial a été respecté. Le code reflète une montée progressive : modules critiques d'abord, puis dashboards/historique, puis pénalités, objectifs/programmes et notifications.
+
+---
+
+## Critères MVP — atteints
 
 - [x] Auth opérationnelle avec gestion des rôles
 - [x] CRUD des créneaux par le coach
-- [x] Réservation / annulation fonctionnelle avec règles métier
+- [x] Réservation / annulation avec règles métier
 - [x] Gestion Solo / Duo correcte
-- [x] Dashboard minimal présent
-- [x] Aucune incohérence de réservation
+- [x] Dashboards par rôle
+- [x] Aucune incohérence de réservation (contrainte `@@unique([userId, sessionId])`)
 
 ---
 
-*Document de cadrage — à mettre à jour après validation client.*
+*Document de référence — à mettre à jour à chaque évolution fonctionnelle.*
