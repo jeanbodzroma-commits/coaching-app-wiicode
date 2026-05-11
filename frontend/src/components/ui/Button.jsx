@@ -4,19 +4,18 @@ import { cn } from '../../utils/cn'
 import Spinner from './Spinner'
 
 const VARIANTS = {
-  // Teal → orange ambré au hover, texte blanc en permanence
+  // Boutons colorés : texte blanc forcé en permanence (repos ET hover)
   primary:
-    'bg-primary-700 text-white hover:bg-accent-600 focus-visible:ring-primary-500 disabled:bg-primary-700/50 disabled:hover:bg-primary-700/50',
-  // Orange ambré → teal au hover, texte blanc en permanence (fond accent-600 pour la lisibilité)
+    'bg-primary-700 !text-white hover:bg-accent-600 focus-visible:ring-primary-500 disabled:bg-primary-700/50 disabled:hover:bg-primary-700/50',
   accent:
-    'bg-accent-600 text-white hover:bg-primary-700 focus-visible:ring-accent-500 disabled:bg-accent-600/60',
+    'bg-accent-600 !text-white hover:bg-primary-700 focus-visible:ring-accent-500 disabled:bg-accent-600/60',
+  danger:
+    'bg-danger-500 !text-white hover:bg-red-600 focus-visible:ring-danger-500 disabled:bg-danger-500/60',
+  // Boutons non remplis : texte adaptatif
   ghost:
     'bg-transparent text-ink-700 hover:bg-accent-50 hover:text-accent-700 focus-visible:ring-primary-500',
-  danger:
-    'bg-danger-500 text-white hover:bg-red-600 focus-visible:ring-danger-500 disabled:bg-danger-500/60',
-  // Contour teal → rempli orange ambré au hover, texte blanc dès le hover
   outline:
-    'border-2 border-primary-700 text-primary-700 bg-transparent hover:bg-accent-600 hover:text-white hover:border-accent-600 focus-visible:ring-primary-500',
+    'border-2 border-primary-700 text-primary-700 bg-transparent hover:bg-accent-600 hover:!text-white hover:border-accent-600 focus-visible:ring-primary-500',
 }
 
 const SIZES = {
