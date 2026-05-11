@@ -260,7 +260,7 @@ Création de `frontend/src/components/ui/` :
 > À compléter au fil de l'avancement.
 
 - ✅ Phase 0 — done (commits `1b3989b` deps + `<this>` foundations) — fonts woff2 (Bricolage 4 graisses, Pogonia 3 graisses) ; images JPG optimisées 75-80% ; favicon généré depuis logo ; `tailwind.config.js` (palette primary/accent 50→900, ink, sémantique, shadows, keyframes shake/pulse-soft/shimmer/fade-in-up) ; `index.css` (@font-face + reset typo + prefers-reduced-motion) ; `utils/cn.js`. **Note Q1** : Surgena mis en attente, `font-heading` retombe sur Bricolage SemiBold via `font-weight: 600`.
-- ⏳ Phase 1 — non démarrée
+- ✅ Phase 1 — done — 13 primitives dans `frontend/src/components/ui/` : Spinner, Button (5 variantes × 3 tailles, loading, hover/tap motion), Card (interactive lift), Input/Textarea/Select (label + erreur + hint, forwardRef compat RHF), Badge (7 variantes), Avatar (initiales + image, 5 tailles), Modal (portal + ESC + scroll lock + AnimatePresence), Skeleton (shimmer teal/amber), Tooltip (delay 300 ms), EmptyState (image overlay teal + icon fallback), Toast + ToastProvider (4 variantes, slide-in droite, auto-dismiss 4 s). Barrel `index.js`. ToastProvider wrappé dans `main.jsx`. Bundle gzip JS 160 ko (à optimiser en Phase 6).
 - ⏳ Phase 2 — non démarrée
 - ⏳ Phase 3 — non démarrée
 - ⏳ Phase 4 — non démarrée
