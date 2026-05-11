@@ -14,7 +14,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { useAuth } from '../store/AuthContext'
-import { Avatar } from '../components/ui'
+import { Avatar, useToast } from '../components/ui'
 import NotificationBell from '../components/notifications/NotificationBell'
 import { cn } from '../utils/cn'
 
@@ -44,6 +44,7 @@ export default function MainLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const toast = useToast()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const reduced = useReducedMotion()
 
@@ -59,6 +60,7 @@ export default function MainLayout() {
 
   function handleLogout() {
     logout()
+    toast.info('À bientôt', 'Tu es maintenant déconnecté.')
     navigate('/login')
   }
 

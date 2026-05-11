@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './store/AuthContext'
 import ProtectedRoute from './routes/ProtectedRoute'
 import RouteFallback from './routes/RouteFallback'
+import ScrollToTop from './routes/ScrollToTop'
 import MainLayout from './layouts/MainLayout'
 import LoginPage from './pages/LoginPage'
 
@@ -18,6 +19,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <ScrollToTop />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>

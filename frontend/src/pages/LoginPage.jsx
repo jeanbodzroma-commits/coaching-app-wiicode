@@ -3,7 +3,7 @@ import { useNavigate, Navigate } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Mail, Lock, AlertCircle } from 'lucide-react'
 import { useAuth } from '../store/AuthContext'
-import { Button, Input } from '../components/ui'
+import { Button, Input, useToast } from '../components/ui'
 
 const TAGLINE = 'Coachez votre équipe.'
 const TAGLINE_2 = 'Restez en mouvement.'
@@ -11,6 +11,7 @@ const TAGLINE_2 = 'Restez en mouvement.'
 export default function LoginPage() {
   const { user, login } = useAuth()
   const navigate = useNavigate()
+  const toast = useToast()
   const reduced = useReducedMotion()
   const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm()
 
@@ -18,7 +19,8 @@ export default function LoginPage() {
 
   async function onSubmit({ email, password }) {
     try {
-      await login(email, password)
+      const loggedUser = await login(email, password)
+      toast.success(`Bienvenue, ${loggedUser.firstName}`, 'Bonne séance.')
       navigate('/dashboard')
     } catch {
       setError('root', { message: 'Email ou mot de passe incorrect' })

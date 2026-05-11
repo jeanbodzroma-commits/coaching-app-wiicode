@@ -185,21 +185,31 @@ export default function AdminDashboard({ data }) {
                     <th className="py-2 text-right">Remplissage</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-ink-200/60">
+                <motion.tbody
+                  className="divide-y divide-ink-200/60"
+                  initial={reduced ? false : 'hidden'}
+                  animate="visible"
+                  variants={reduced ? {} : { hidden: {}, visible: { transition: { staggerChildren: 0.04 } } }}
+                >
                   {recentSessions.map(s => {
                     const pct = Math.round((s.confirmedCount / s.capacity) * 100)
                     return (
-                      <tr key={s.id} className="cursor-pointer transition-colors hover:bg-ink-50" onClick={() => navigate(`/planning/${s.id}`)}>
+                      <motion.tr
+                        key={s.id}
+                        variants={reduced ? {} : { hidden: { opacity: 0, y: 4 }, visible: { opacity: 1, y: 0 } }}
+                        className="cursor-pointer transition-colors hover:bg-ink-50"
+                        onClick={() => navigate(`/planning/${s.id}`)}
+                      >
                         <td className="py-3 text-ink-700">{new Date(s.date).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
                         <td className="py-3"><Badge variant={s.type === 'SOLO' ? 'primary' : 'accent'}>{s.type}</Badge></td>
                         <td className="py-3 text-ink-500">{s.coach.firstName} {s.coach.lastName}</td>
                         <td className="py-3 text-right">
                           <span className={`font-semibold ${pct === 100 ? 'text-success-500' : pct > 0 ? 'text-primary-700' : 'text-ink-500'}`}>{pct}%</span>
                         </td>
-                      </tr>
+                      </motion.tr>
                     )
                   })}
-                </tbody>
+                </motion.tbody>
               </table>
             </div>
           )}

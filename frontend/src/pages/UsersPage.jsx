@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { motion, useReducedMotion } from 'framer-motion'
 import { Plus, Search, X } from 'lucide-react'
 import { usersService } from '../services/users.service'
 import { Card, Button, Input, Badge, Avatar, Modal, Skeleton, useToast } from '../components/ui'
@@ -11,6 +12,7 @@ const ROLE_VARIANT = { ADMIN: 'primary', COACH: 'accent', EMPLOYEE: 'info' }
 export default function UsersPage() {
   const qc = useQueryClient()
   const toast = useToast()
+  const reduced = useReducedMotion()
   const [search, setSearch] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [toDisable, setToDisable] = useState(null)
@@ -112,9 +114,18 @@ export default function UsersPage() {
                   <th className="px-4 py-3 text-right"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-ink-200/60">
+              <motion.tbody
+                className="divide-y divide-ink-200/60"
+                initial={reduced ? false : 'hidden'}
+                animate="visible"
+                variants={reduced ? {} : { hidden: {}, visible: { transition: { staggerChildren: 0.04 } } }}
+              >
                 {filtered.map(u => (
-                  <tr key={u.id} className="transition-colors hover:bg-ink-50">
+                  <motion.tr
+                    key={u.id}
+                    variants={reduced ? {} : { hidden: { opacity: 0, y: 4 }, visible: { opacity: 1, y: 0 } }}
+                    className="transition-colors hover:bg-ink-50"
+                  >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <Avatar size="sm" name={`${u.firstName} ${u.lastName}`} />
@@ -133,9 +144,9 @@ export default function UsersPage() {
                         </Button>
                       )}
                     </td>
-                  </tr>
+                  </motion.tr>
                 ))}
-              </tbody>
+              </motion.tbody>
             </table>
           </Card>
         </>
