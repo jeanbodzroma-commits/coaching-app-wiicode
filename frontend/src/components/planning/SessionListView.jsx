@@ -94,7 +94,7 @@ function SessionRow({ session: s, isReserved, canReserve, onReserve, onOpen, isP
               disabled={isPending}
               className={cn(
                 'rounded-lg px-3 py-1.5 text-caption font-semibold text-white transition-colors disabled:opacity-60',
-                isDuoOpen ? 'bg-accent-500 hover:bg-accent-600' : 'bg-primary-700 hover:bg-primary-800'
+                isDuoOpen ? 'bg-accent-500 hover:bg-primary-700' : 'bg-primary-700 hover:bg-accent-600'
               )}
             >
               {isDuoOpen ? 'Rejoindre' : 'Réserver'}

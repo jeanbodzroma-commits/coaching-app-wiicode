@@ -4,16 +4,19 @@ import { cn } from '../../utils/cn'
 import Spinner from './Spinner'
 
 const VARIANTS = {
+  // Teal → orange ambré au hover, texte blanc dans les deux états
   primary:
-    'bg-primary-700 text-white hover:bg-primary-800 focus-visible:ring-primary-500 disabled:bg-primary-700/50',
+    'bg-primary-700 text-white hover:bg-accent-600 hover:text-white focus-visible:ring-primary-500 disabled:bg-primary-700/50 disabled:hover:bg-primary-700/50',
+  // Orange ambré → teal au hover (inverse), texte adapté (ink sur orange, blanc sur teal)
   accent:
-    'bg-accent-400 text-ink-900 hover:bg-accent-500 focus-visible:ring-accent-500 disabled:bg-accent-400/60',
+    'bg-accent-400 text-ink-900 hover:bg-primary-700 hover:text-white focus-visible:ring-accent-500 disabled:bg-accent-400/60',
   ghost:
-    'bg-transparent text-ink-700 hover:bg-ink-50 focus-visible:ring-primary-500',
+    'bg-transparent text-ink-700 hover:bg-accent-50 hover:text-accent-700 focus-visible:ring-primary-500',
   danger:
     'bg-danger-500 text-white hover:bg-red-600 focus-visible:ring-danger-500 disabled:bg-danger-500/60',
+  // Contour teal → rempli orange ambré au hover, texte blanc
   outline:
-    'border-2 border-primary-700 text-primary-700 bg-transparent hover:bg-primary-50 focus-visible:ring-primary-500',
+    'border-2 border-primary-700 text-primary-700 bg-transparent hover:bg-accent-600 hover:text-white hover:border-accent-600 focus-visible:ring-primary-500',
 }
 
 const SIZES = {

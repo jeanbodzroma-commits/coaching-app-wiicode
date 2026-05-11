@@ -160,7 +160,7 @@ export default function PlanningPage() {
           type="button"
           onClick={() => setShowCreate(true)}
           aria-label="Nouveau créneau"
-          className="fixed bottom-6 right-6 z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary-700 text-white shadow-elevated hover:bg-primary-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 lg:hidden"
+          className="fixed bottom-6 right-6 z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary-700 text-white shadow-elevated transition-colors hover:bg-accent-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 lg:hidden"
         >
           <Plus className="h-6 w-6" strokeWidth={2} />
         </button>
