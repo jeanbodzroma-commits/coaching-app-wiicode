@@ -1,9 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../store/AuthContext'
 import { dashboardService } from '../services/dashboard.service'
+import { Skeleton } from '../components/ui'
 import EmployeeDashboard from '../components/dashboard/EmployeeDashboard'
 import CoachDashboard from '../components/dashboard/CoachDashboard'
 import AdminDashboard from '../components/dashboard/AdminDashboard'
+
+const ROLE_GREETING = {
+  EMPLOYEE: 'Prêt à bouger ?',
+  COACH:    'Voici ta journée.',
+  ADMIN:    'Vue d\'ensemble de l\'activité.',
+}
 
 export default function DashboardPage() {
   const { user } = useAuth()
@@ -14,34 +21,37 @@ export default function DashboardPage() {
     refetchInterval: 60_000,
   })
 
-  if (isLoading) {
-    return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-64" />
-          <div className="grid grid-cols-3 gap-4">
-            {[1, 2, 3].map(i => <div key={i} className="h-24 bg-gray-200 rounded-xl" />)}
-          </div>
-          <div className="h-48 bg-gray-200 rounded-xl" />
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-800">Bonjour, {user?.firstName} 👋</h2>
-        <p className="text-gray-500 text-sm capitalize">{roleLabel(user?.role)}</p>
-      </div>
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 lg:space-y-8">
+      {/* Hero */}
+      <header>
+        <p className="text-caption font-medium uppercase tracking-wide text-ink-500">
+          Bonjour {user?.firstName ? `, ${user.firstName}` : ''} 👋
+        </p>
+        <h1 className="mt-1 font-display text-display-lg text-ink-900 lg:text-display-lg-md">
+          {ROLE_GREETING[user?.role] ?? 'Dashboard'}
+        </h1>
+      </header>
 
-      {user?.role === 'EMPLOYEE' && <EmployeeDashboard data={data} />}
-      {user?.role === 'COACH' && <CoachDashboard data={data} />}
-      {user?.role === 'ADMIN' && <AdminDashboard data={data} />}
+      {isLoading ? <DashboardSkeleton /> : (
+        <>
+          {user?.role === 'EMPLOYEE' && <EmployeeDashboard data={data} />}
+          {user?.role === 'COACH'    && <CoachDashboard    data={data} />}
+          {user?.role === 'ADMIN'    && <AdminDashboard    data={data} />}
+        </>
+      )}
     </div>
   )
 }
 
-function roleLabel(role) {
-  return { ADMIN: 'Administrateur', COACH: 'Coach', EMPLOYEE: 'Employé' }[role] || role
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-28" />)}
+      </div>
+      <Skeleton className="h-56" />
+      <Skeleton className="h-64" />
+    </div>
+  )
 }
