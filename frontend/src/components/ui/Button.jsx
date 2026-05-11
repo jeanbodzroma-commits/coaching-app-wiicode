@@ -4,17 +4,17 @@ import { cn } from '../../utils/cn'
 import Spinner from './Spinner'
 
 const VARIANTS = {
-  // Teal → orange ambré au hover, texte blanc dans les deux états
+  // Teal → orange ambré au hover, texte blanc en permanence
   primary:
-    'bg-primary-700 text-white hover:bg-accent-600 hover:text-white focus-visible:ring-primary-500 disabled:bg-primary-700/50 disabled:hover:bg-primary-700/50',
-  // Orange ambré → teal au hover (inverse), texte adapté (ink sur orange, blanc sur teal)
+    'bg-primary-700 text-white hover:bg-accent-600 focus-visible:ring-primary-500 disabled:bg-primary-700/50 disabled:hover:bg-primary-700/50',
+  // Orange ambré → teal au hover, texte blanc en permanence (fond accent-600 pour la lisibilité)
   accent:
-    'bg-accent-400 text-ink-900 hover:bg-primary-700 hover:text-white focus-visible:ring-accent-500 disabled:bg-accent-400/60',
+    'bg-accent-600 text-white hover:bg-primary-700 focus-visible:ring-accent-500 disabled:bg-accent-600/60',
   ghost:
     'bg-transparent text-ink-700 hover:bg-accent-50 hover:text-accent-700 focus-visible:ring-primary-500',
   danger:
     'bg-danger-500 text-white hover:bg-red-600 focus-visible:ring-danger-500 disabled:bg-danger-500/60',
-  // Contour teal → rempli orange ambré au hover, texte blanc
+  // Contour teal → rempli orange ambré au hover, texte blanc dès le hover
   outline:
     'border-2 border-primary-700 text-primary-700 bg-transparent hover:bg-accent-600 hover:text-white hover:border-accent-600 focus-visible:ring-primary-500',
 }
@@ -68,10 +68,10 @@ const Button = forwardRef(function Button(
           : { scale: 1.02, boxShadow: glowVariant ? '0 0 0 4px rgba(252, 179, 77, 0.25)' : undefined }
       }
       whileTap={reduced || isInactive ? undefined : { scale: 0.98 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+      transition={{ type: 'spring', stiffness: 220, damping: 24 }}
       className={cn(
         'relative inline-flex items-center justify-center rounded-xl font-heading font-semibold',
-        'transition-colors duration-150 ease-out-soft',
+        'transition-colors duration-300 ease-out-soft',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
         'disabled:cursor-not-allowed',
         VARIANTS[variant],
