@@ -49,3 +49,8 @@ services:
 
 volumes:
   db-data:
+
+networks:
+  default:
+    name: proxy-network
+    external: true
