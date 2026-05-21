@@ -46,13 +46,6 @@ services:
       - backend
     ports:
       - "${BIND_IP:-0.0.0.0}:${FRONTEND_HOST_PORT:-5173}:80"
-    networks:
-      - default
-      - proxy-network
 
 volumes:
   db-data:
-
-networks:
-  proxy-network:
-    external: true
