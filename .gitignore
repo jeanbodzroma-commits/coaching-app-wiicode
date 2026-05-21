@@ -4,3 +4,6 @@ dist/
 .DS_Store
 *.log
 backend/prisma/migrations/
+sshaccess.txt
+*.secrets
+.idea/
