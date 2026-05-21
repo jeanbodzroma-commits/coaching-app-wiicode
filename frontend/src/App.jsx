@@ -14,6 +14,7 @@ const HistoryPage        = lazy(() => import('./pages/HistoryPage'))
 const UsersPage          = lazy(() => import('./pages/UsersPage'))
 const PenaltiesPage      = lazy(() => import('./pages/PenaltiesPage'))
 const ProgramsPage       = lazy(() => import('./pages/ProgramsPage'))
+const AdminToolsPage     = lazy(() => import('./pages/AdminToolsPage'))
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="users"          element={<ProtectedRoute roles={['ADMIN']}><Suspense fallback={<RouteFallback />}><UsersPage /></Suspense></ProtectedRoute>} />
             <Route path="penalties"      element={<ProtectedRoute roles={['ADMIN']}><Suspense fallback={<RouteFallback />}><PenaltiesPage /></Suspense></ProtectedRoute>} />
             <Route path="programs"       element={<Suspense fallback={<RouteFallback />}><ProgramsPage /></Suspense>} />
+            <Route path="admin/tools"    element={<ProtectedRoute roles={['ADMIN']}><Suspense fallback={<RouteFallback />}><AdminToolsPage /></Suspense></ProtectedRoute>} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

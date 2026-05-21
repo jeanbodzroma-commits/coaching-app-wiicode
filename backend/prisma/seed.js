@@ -338,23 +338,29 @@ function printCredentials() {
   console.log('  - <prenom>.<nom>@wiicode.fr (12 employés)           / demo@1234')
 }
 
-async function main() {
+async function main({ force = false } = {}) {
   console.log('🌱 Seed démarré')
 
   const canonical = await upsertCanonicalAccounts()
 
-  // Skip the extended seed if already applied (marker = sarah.coach@wiicode.fr exists)
+  // Skip the extended seed if already applied (marker = sarah.coach@wiicode.fr exists),
+  // sauf si force=true (appel depuis l'endpoint admin).
   const marker = await prisma.user.findUnique({ where: { email: 'sarah.coach@wiicode.fr' } })
-  if (marker) {
+  if (marker && !force) {
     console.log('Seed étendu déjà appliqué — skip')
     printCredentials()
-    return
+    return { skipped: true }
   }
 
   await seedExtended(canonical)
   printCredentials()
+  return { skipped: false }
 }
 
-main()
-  .catch((e) => { console.error(e); process.exit(1) })
-  .finally(() => prisma.$disconnect())
+if (require.main === module) {
+  main()
+    .catch((e) => { console.error(e); process.exit(1) })
+    .finally(() => prisma.$disconnect())
+}
+
+module.exports = { run: main }

@@ -8,6 +8,7 @@ import {
   Target,
   Users,
   ShieldAlert,
+  Wrench,
   LogOut,
   Menu,
   X,
@@ -23,8 +24,9 @@ const NAV_ITEMS = [
   { to: '/planning',  label: 'Planning',      icon: Calendar,        roles: ['ADMIN', 'COACH', 'EMPLOYEE'] },
   { to: '/history',   label: 'Historique',    icon: History,         roles: ['ADMIN', 'COACH', 'EMPLOYEE'] },
   { to: '/programs',  label: 'Programmes',    icon: Target,          roles: ['ADMIN', 'COACH', 'EMPLOYEE'] },
-  { to: '/users',     label: 'Utilisateurs',  icon: Users,           roles: ['ADMIN'] },
-  { to: '/penalties', label: 'Pénalités',     icon: ShieldAlert,     roles: ['ADMIN'] },
+  { to: '/users',       label: 'Utilisateurs', icon: Users,           roles: ['ADMIN'] },
+  { to: '/penalties',   label: 'Pénalités',    icon: ShieldAlert,     roles: ['ADMIN'] },
+  { to: '/admin/tools', label: 'Outils',       icon: Wrench,          roles: ['ADMIN'] },
 ]
 
 const ROLE_LABEL = { ADMIN: 'Administrateur', COACH: 'Coach', EMPLOYEE: 'Employé' }
@@ -37,6 +39,7 @@ function getBreadcrumb(pathname) {
   if (pathname === '/programs')          return ['Programmes']
   if (pathname === '/users')             return ['Utilisateurs']
   if (pathname === '/penalties')         return ['Pénalités']
+  if (pathname === '/admin/tools')       return ['Administration', 'Outils']
   return []
 }
 
