@@ -56,7 +56,7 @@ async function create(req, res, next) {
   try {
     const data = createGoalSchema.parse(req.body)
     const goal = await prisma.goal.create({
-      data: { ...data, targetDate: data.targetDate ? new Date(data.targetDate) : undefined, coachId: req.user.id },
+      data: { ...data, coachId: req.user.id },
       include: { employee: { select: employeeSelect }, coach: { select: coachSelect } },
     })
     res.status(201).json(goal)
@@ -66,7 +66,6 @@ async function create(req, res, next) {
 async function update(req, res, next) {
   try {
     const data = updateGoalSchema.parse(req.body)
-    if (data.targetDate) data.targetDate = new Date(data.targetDate)
     const goal = await prisma.goal.update({
       where: { id: req.params.id },
       data,
