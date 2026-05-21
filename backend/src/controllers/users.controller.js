@@ -18,6 +18,19 @@ async function getAll(req, res, next) {
   }
 }
 
+async function getEmployees(req, res, next) {
+  try {
+    const employees = await prisma.user.findMany({
+      where: { role: 'EMPLOYEE', isActive: true },
+      select: { id: true, firstName: true, lastName: true, email: true },
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+    })
+    res.json(employees)
+  } catch (err) {
+    next(err)
+  }
+}
+
 async function getOne(req, res, next) {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.params.id }, select: safeSelect })
@@ -68,4 +81,4 @@ async function remove(req, res, next) {
   }
 }
 
-module.exports = { getAll, getOne, create, update, remove }
+module.exports = { getAll, getEmployees, getOne, create, update, remove }

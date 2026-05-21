@@ -19,8 +19,7 @@ export default function CoachPrograms() {
 
   const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: goalsService.getAll })
   const { data: programs = [] } = useQuery({ queryKey: ['programs'], queryFn: programsService.getAll })
-  const { data: users = [] } = useQuery({ queryKey: ['users'], queryFn: usersService.getAll })
-  const employees = users.filter(u => u.role === 'EMPLOYEE' && u.isActive)
+  const { data: employees = [] } = useQuery({ queryKey: ['users', 'employees'], queryFn: usersService.getEmployees })
 
   const goalMutation = useMutation({
     mutationFn: goalsService.create,
